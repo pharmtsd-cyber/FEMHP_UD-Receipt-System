@@ -40,7 +40,6 @@ function playErrorSound() {
 // 主程式邏輯
 // ==========================================
 document.addEventListener('DOMContentLoaded', () => {
-  // 1. 檢查登入狀態
   const transId = sessionStorage.getItem('transId');
   const transName = sessionStorage.getItem('transName');
 
@@ -53,7 +52,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.getElementById('displayUser').textContent = `${transName} (${transId})`;
 
-  // 2. 初始化
   const today = new Date().toISOString().split('T')[0];
   document.getElementById('medDate').value = today;
 
@@ -62,24 +60,23 @@ document.addEventListener('DOMContentLoaded', () => {
   const totalCountSpan = document.getElementById('totalCount');
   const emptyState = document.getElementById('emptyState');
   
-  let scanCount = 0;
+  // ★ 核心改變：使用 Set 儲存「不重複」的領藥號關鍵字 (領藥號 + 處方日期)
+  const scannedItems = new Set();
+  
   barcodeInput.focus();
 
-  // 點擊空白處自動拉回焦點
   document.body.addEventListener('click', (e) => {
     if (e.target.tagName !== 'BUTTON' && !e.target.classList.contains('nav-link')) {
        barcodeInput.focus();
     }
   });
 
-  // 3. 處理條碼刷入
   barcodeInput.addEventListener('keypress', async (e) => {
     if (e.key === 'Enter') {
       e.preventDefault();
       const barcodeValue = barcodeInput.value.trim();
       if (!barcodeValue) return;
 
-      // 驗證條碼格式與領藥號防呆 (不對後端，純前端檢查，不影響速度)
       const parts = barcodeValue.split(';');
       if (parts.length < 5 || !parts[2] || !parts[2].startsWith('8')) {
         playErrorSound(); 
@@ -87,19 +84,22 @@ document.addEventListener('DOMContentLoaded', () => {
           icon: 'error',
           title: '條碼格式錯誤',
           text: '請確認是否刷對條碼，領藥號必須為 8 開頭！',
-          timer: 2500
+          timer: 2000
         });
         barcodeInput.value = '';
         barcodeInput.focus();
         return;
       }
 
-      // 解析資料
       const chartNo = parts[0]; 
       const dispenseNo = parts[2]; 
       const rawDateStr = parts[4]; 
       const dateMatch = rawDateStr.match(/[A-Za-z](\d{8})/);
       const rxDate = dateMatch ? dateMatch[1] : '';
+
+      // ★ 判斷是否為重複資料
+      const itemKey = `${dispenseNo}-${rxDate}`;
+      const isNewItem = !scannedItems.has(itemKey);
 
       const payload = {
         date: document.getElementById('medDate').value,
@@ -112,17 +112,23 @@ document.addEventListener('DOMContentLoaded', () => {
         rxDate: rxDate
       };
 
-      // ★ 回復：瞬間畫出「處理中(黃邊)」卡片，並清空輸入框保持 focus，讓人員可以無縫連刷
       const cardId = 'card_' + Date.now();
-      addCardToUI(payload, cardId, true); 
+      
+      // ★ 只有「第一次刷到」才更新總筆數顯示
+      if (isNewItem) {
+        scannedItems.add(itemKey);
+        addCardToUI(payload, cardId, true); 
+        totalCountSpan.textContent = scannedItems.size;
+      } else {
+        // 如果是重複刷，雖然不增加總數，但還是畫一張提示卡片（或更新狀態）讓人員知道有刷成功
+        addCardToUI(payload, cardId, true, true); 
+      }
       
       barcodeInput.value = '';
       barcodeInput.focus();
 
-      // 非同步發送寫入請求 (不等待後端回應，人員可繼續刷下一個)
       const result = await callGAS('logDischargeMeds', { payload: payload });
       
-      // 等後端寫入完畢後，再更新卡片狀態並發出音效
       if (result.success) {
         playSuccessSound(); 
         const successCard = document.getElementById(cardId);
@@ -132,18 +138,19 @@ document.addEventListener('DOMContentLoaded', () => {
         const errorCard = document.getElementById(cardId);
         if(errorCard){
           errorCard.classList.replace('border-warning', 'border-danger');
-          errorCard.querySelector('.card-body').innerHTML += `<div class="text-danger mt-2 fs-5 fw-bold">寫入失敗，請重試</div>`;
+          errorCard.querySelector('.card-body').innerHTML += `<div class="text-danger mt-1 fs-6 fw-bold">寫入失敗</div>`;
         }
       }
     }
   });
 
-  // 4. 繪製卡片 UI 
-  function addCardToUI(data, cardId, isPending) {
+  // ★ 修改 addCardToUI，增加一個 isDuplicate 參數
+  function addCardToUI(data, cardId, isPending, isDuplicate = false) {
     if (emptyState) emptyState.style.display = 'none';
 
     const card = document.createElement('div');
     card.id = cardId;
+    // 重複刷的卡片可以用不同的樣式或標註
     card.className = `card mb-3 shadow-sm ${isPending ? 'border-warning' : 'border-success'} border-2`;
     
     const now = new Date();
@@ -152,7 +159,10 @@ document.addEventListener('DOMContentLoaded', () => {
     card.innerHTML = `
       <div class="card-body py-3 px-4">
         <div class="d-flex justify-content-between align-items-center mb-2">
-          <h3 class="m-0 text-success fw-bold">領藥號：${data.dispenseNo}</h3>
+          <h3 class="m-0 text-success fw-bold">
+            領藥號：${data.dispenseNo} 
+            ${isDuplicate ? '<span class="badge bg-warning text-dark fs-6 ms-2">重複刷入</span>' : ''}
+          </h3>
           <span class="text-muted fs-4">${timeString}</span>
         </div>
         <div class="mb-2 fs-5 text-secondary">
@@ -166,12 +176,9 @@ document.addEventListener('DOMContentLoaded', () => {
     `;
 
     cardContainer.insertBefore(card, cardContainer.firstChild);
-    scanCount++;
-    totalCountSpan.textContent = scanCount;
   }
 });
 
-// 全域登出函數
 function logout() {
   sessionStorage.removeItem('transId');
   sessionStorage.removeItem('transName');
