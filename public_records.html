@@ -3,47 +3,96 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>今日出院帶藥總表 - 住院藥局收發系統</title>
+  <title>今日收發總表 - 住院藥局收發系統</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+  <style>
+    /* 讓目前作用中的頁籤有明顯底色 */
+    .nav-tabs .nav-link.active {
+      background-color: #e9ecef !important;
+      border-color: #dee2e6 #dee2e6 #e9ecef !important;
+      font-weight: bold;
+    }
+  </style>
 </head>
 <body class="bg-light">
 
   <nav class="navbar navbar-dark bg-secondary mb-4 shadow-sm px-3">
     <div class="container-fluid">
-      <span class="navbar-brand mb-0 h1 fs-3"><i class="bi bi-card-checklist me-2"></i>今日出院帶藥總表 (依領藥號排序)</span>
-      <a href="index.html" class="btn btn-outline-light">返回首頁</a>
+      <span class="navbar-brand mb-0 h1 fs-3"><i class="bi bi-clipboard-data me-2"></i>今日收發總表 (公開資訊)</span>
+      <a href="index.html" class="btn btn-outline-light">← 返回首頁</a>
     </div>
   </nav>
 
-  <div class="container">
+  <div class="container-fluid px-4">
     <div class="card shadow">
       <div class="card-body p-4">
-        <h4 class="mb-4 text-center text-primary fw-bold" id="dateTitle">載入中...</h4>
+        <h4 class="mb-4 text-center text-dark fw-bold" id="dateTitle">載入中...</h4>
         
-        <div class="table-responsive">
-          <table class="table table-hover table-striped align-middle fs-5">
-            <thead class="table-dark">
-              <tr>
-                <th>序號</th>
-                <th>領藥號</th>
-                <th>病歷號</th>
-                <th>處方日期</th>
-                <th>簽收人</th>
-                <th>簽收時間</th>
-              </tr>
-            </thead>
-            <tbody id="recordsTableBody">
-              <tr>
-                <td colspan="6" class="text-center text-muted py-4">資料載入中，請稍候...</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+        <!-- 上方切換頁籤 (Tab) -->
+        <ul class="nav nav-tabs nav-fill mb-4 fs-4" id="recordTab" role="tablist">
+          <li class="nav-item" role="presentation">
+            <button class="nav-link active text-success" id="med-tab" data-bs-toggle="tab" data-bs-target="#med" type="button" role="tab">📦 出院帶藥紀錄</button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link text-primary" id="doc-tab" data-bs-toggle="tab" data-bs-target="#doc" type="button" role="tab">📄 文件收發紀錄</button>
+          </li>
+        </ul>
+
+        <!-- 頁籤內容區 -->
+        <div class="tab-content" id="recordTabContent">
+          
+          <!-- 第一頁籤：出院帶藥 -->
+          <div class="tab-pane fade show active" id="med" role="tabpanel">
+            <div class="table-responsive">
+              <table class="table table-hover table-striped align-middle fs-5">
+                <thead class="table-success">
+                  <tr>
+                    <th>序號</th>
+                    <th>領藥號</th>
+                    <th>病歷號</th>
+                    <th>處方日期</th>
+                    <th>簽收人</th>
+                    <th>簽收時間</th>
+                  </tr>
+                </thead>
+                <tbody id="medRecordsBody">
+                  <tr><td colspan="6" class="text-center text-muted py-4">資料載入中，請稍候...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- 第二頁籤：收發文件 (版面預留) -->
+          <div class="tab-pane fade" id="doc" role="tabpanel">
+            <div class="table-responsive">
+              <table class="table table-hover table-striped align-middle fs-5">
+                <thead class="table-primary">
+                  <tr>
+                    <th>狀態</th>
+                    <th>送件類型</th>
+                    <th>病房/床號</th>
+                    <th>病歷號</th>
+                    <th>送件人</th>
+                    <th>收單藥師</th>
+                  </tr>
+                </thead>
+                <tbody id="docRecordsBody">
+                  <tr><td colspan="6" class="text-center text-muted py-5">
+                    <i class="bi bi-tools fs-1 d-block mb-3"></i>
+                    文件收發系統模組開發中，敬請期待...
+                  </td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+        </div> <!-- end tab-content -->
       </div>
     </div>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script src="js/config.js"></script>
   <script>
     document.addEventListener('DOMContentLoaded', async () => {
@@ -51,10 +100,10 @@
       const today = new Date().toISOString().split('T')[0];
       document.getElementById('dateTitle').textContent = `📅 查詢日期：${today}`;
 
-      // 呼叫 GAS 取得今日紀錄
+      // 呼叫 GAS 取得今日「出院帶藥」紀錄
       const result = await callGAS('getDailyRecords', { date: today });
       
-      const tbody = document.getElementById('recordsTableBody');
+      const tbody = document.getElementById('medRecordsBody');
       tbody.innerHTML = ''; // 清空載入中提示
 
       if (result.success && result.data.length > 0) {
