@@ -63,20 +63,32 @@ async function refreshPharmaDocs() {
       });
     }
 
-    // === 右側：已收單 (加入撤銷按鈕) ===
+// === 右側：已收單 (加入撤銷按鈕) ===
     const completedData = result.data.completed;
     if (completedData.length === 0) {
       completedBox.innerHTML = '<div class="text-muted text-center py-4">無收單紀錄</div>';
     } else {
       completedBox.innerHTML = '';
       completedData.forEach(item => {
-        const isClosed = item.replyOption === '收下不歸還';
+        
+        // ★ 判斷目前最終狀態來決定卡片與標籤顏色
+        let badgeClass = 'bg-danger'; // 預設紅色 (掛牌/退件，提醒藥師還沒人來拿)
+        let borderClass = 'border-primary';
+        
+        if (item.replyOption === '收下不歸還') {
+          badgeClass = 'bg-success'; // 綠色 (系統結案)
+          borderClass = 'border-success';
+        } else if (item.replyOption === '已領回') {
+          badgeClass = 'bg-secondary'; // 灰色 (傳送已拿走，圓滿結束)
+          borderClass = 'border-secondary';
+        }
+
         const card = document.createElement('div');
-        card.className = `card mb-2 shadow-sm border-start border-4 ${isClosed ? 'border-success' : 'border-primary'}`;
+        card.className = `card mb-2 shadow-sm border-start border-4 ${borderClass}`;
         card.innerHTML = `
           <div class="card-body p-2">
             <div class="d-flex justify-content-between mb-1">
-              <strong class="text-primary fs-6">${item.type}</strong>
+              <strong class="text-dark fs-6">${item.type}</strong>
               <small class="text-muted">${item.receiveTime} 收</small>
             </div>
             <div class="small text-secondary mb-1">
@@ -84,7 +96,7 @@ async function refreshPharmaDocs() {
             </div>
             <div class="d-flex justify-content-between align-items-center mt-2">
               <div>
-                <span class="badge ${isClosed ? 'bg-success' : 'bg-danger'}">${item.replyOption}</span>
+                <span class="badge ${badgeClass}">${item.replyOption}</span>
               </div>
               <button class="btn btn-outline-danger btn-sm py-0" onclick="revertDoc('${item.signId}')">撤銷</button>
             </div>
