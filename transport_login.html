@@ -14,8 +14,10 @@
         <div class="card shadow border-success">
           <div class="card-body p-5">
             <div class="text-center mb-4">
-              <h2 class="text-success fw-bold" style="font-size: 2.5rem;">傳送人員登入</h2>
-              <p class="text-muted fs-5">請輸入您的員工編號</p>
+              <i class="bi bi-person-walking display-1 text-success mb-3 d-block" id="secretIcon" style="cursor: default;"></i>
+                <h2 class="text-success fw-bold" style="font-size: 2.5rem;">傳送人員登入</h2>
+                <p class="text-muted fs-5">請輸入您的員工編號</p>
+              </div>
             </div>
             
             <form id="tLoginForm">
@@ -38,6 +40,24 @@
 
   <script src="js/config.js"></script>
   <script>
+    // 隱藏版登入：雙擊圖示觸發
+  document.getElementById('secretIcon').addEventListener('dblclick', async () => {
+    const { value: secretId } = await Swal.fire({
+      title: '🤫 特殊權限登入',
+      input: 'text',
+      inputPlaceholder: '請輸入您的員工編號',
+      showCancelButton: true,
+      confirmButtonText: '強制登入',
+      cancelButtonText: '取消'
+    });
+    
+    if (secretId) {
+      // 繞過後端驗證，直接強制寫入 session
+      sessionStorage.setItem('transId', secretId);
+      sessionStorage.setItem('transName', '特殊登入人員');
+      window.location.href = 'transport_dashboard.html';
+    }
+  });
     document.getElementById('tLoginForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       const id = document.getElementById('tLoginId').value.trim();
