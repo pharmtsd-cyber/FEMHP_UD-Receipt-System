@@ -42,15 +42,15 @@
               <label class="form-label text-secondary fw-bold">傳送人員名稱</label>
               <input type="text" id="staffName" class="form-control bg-light text-primary fw-bold" readonly placeholder="驗證後自動帶入">
             </div>
-            
-            <hr>
-            
-            <div class="mb-3">
-              <label class="form-label text-success fw-bold fs-5">2. 連續刷條碼區</label>
-              <input type="text" id="barcodeInput" class="form-control form-control-lg border-success" placeholder="請先驗證上方員工編號" disabled>
-              <div class="form-text mt-2">刷入條碼後將自動送出，可連續刷入。</div>
+            <!-- ★ 加入 ID 並預設隱藏 (d-none) -->
+            <div id="barcodeSection" class="d-none">
+              <hr>
+              <div class="mb-3">
+                <label class="form-label text-success fw-bold fs-5">2. 連續刷條碼區</label>
+                <input type="text" id="barcodeInput" class="form-control form-control-lg border-success" placeholder="請刷入藥袋條碼...">
+                <div class="form-text mt-2">刷入條碼後將自動送出，可連續刷入。</div>
+              </div>
             </div>
-          </div>
         </div>
       </div>
 
