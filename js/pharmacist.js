@@ -38,7 +38,6 @@ async function refreshPharmaDocs() {
     } else {
       pendingBox.innerHTML = '';
       pendingData.forEach(item => {
-        // 使用緊湊型卡片 (p-2, fs-6)
         const card = document.createElement('div');
         card.className = 'card mb-2 shadow-sm border-warning border-start border-4';
         card.innerHTML = `
@@ -50,7 +49,7 @@ async function refreshPharmaDocs() {
             <div class="fs-6 mb-2">
               <span class="me-3">病房: <strong class="text-primary">${item.ward || '無'}</strong></span>
               <span>病歷號: <strong>${item.chartNo || '無'}</strong></span>
-              <!-- 編輯按鈕 (鉛筆) -->
+              <!-- 編輯按鈕 -->
               <button class="btn btn-sm btn-link py-0 px-1 text-secondary" onclick="editDocInfo('${item.signId}', '${item.ward}', '${item.chartNo}')"><i class="bi bi-pencil-square"></i> 修改</button>
             </div>
             ${item.sendNote ? `<div class="text-danger small mb-2 bg-light p-1 rounded">備註: ${item.sendNote}</div>` : ''}
@@ -87,7 +86,6 @@ async function refreshPharmaDocs() {
               <div>
                 <span class="badge ${isClosed ? 'bg-success' : 'bg-danger'}">${item.replyOption}</span>
               </div>
-              <!-- 撤銷收單按鈕 -->
               <button class="btn btn-outline-danger btn-sm py-0" onclick="revertDoc('${item.signId}')">撤銷</button>
             </div>
           </div>
@@ -118,11 +116,15 @@ async function editDocInfo(signId, currentWard, currentChartNo) {
   });
 
   if (formValues) {
-    Swal.fire({ title: '儲存中...', didOpen: () => Swal.showLoading() });
+    Swal.fire({ title: '儲存中...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
     const payload = { action: 'updateInfo', signId: signId, ward: formValues.ward, chartNo: formValues.chartNo };
     const res = await callGAS('editDocRecord', { payload: payload });
-    if (res.success) refreshPharmaDocs();
-    else Swal.fire('失敗', res.message, 'error');
+    if (res.success) {
+      Swal.fire({ icon: 'success', title: '修改成功', timer: 1000, showConfirmButton: false }); // ★ 蓋掉轉圈圈
+      refreshPharmaDocs();
+    } else {
+      Swal.fire('失敗', res.message, 'error');
+    }
   }
 }
 
@@ -138,10 +140,15 @@ async function revertDoc(signId) {
   });
 
   if (confirm.isConfirmed) {
-    Swal.fire({ title: '撤銷中...', didOpen: () => Swal.showLoading() });
+    Swal.fire({ title: '撤銷中...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
     const payload = { action: 'revertReceive', signId: signId };
     const res = await callGAS('editDocRecord', { payload: payload });
-    if (res.success) refreshPharmaDocs();
+    if (res.success) {
+      Swal.fire({ icon: 'success', title: '已撤銷', timer: 1000, showConfirmButton: false }); // ★ 蓋掉轉圈圈
+      refreshPharmaDocs();
+    } else {
+      Swal.fire('失敗', res.message, 'error');
+    }
   }
 }
 
@@ -170,10 +177,15 @@ async function receiveDoc(signId) {
   });
 
   if (isConfirmed && formValues) {
-    Swal.fire({ title: '處理中...', didOpen: () => Swal.showLoading() });
+    Swal.fire({ title: '處理中...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
     const payload = { signId, pharmaId: currentPharmaId, pharmaName: currentPharmaName, replyOption: formValues.replyOption, note: formValues.note };
     const res = await callGAS('receiveDocTransfer', { payload: payload });
-    if (res.success) refreshPharmaDocs();
+    if (res.success) {
+      Swal.fire({ icon: 'success', title: '收單成功', timer: 1000, showConfirmButton: false }); // ★ 蓋掉轉圈圈
+      refreshPharmaDocs();
+    } else {
+      Swal.fire('失敗', res.message, 'error');
+    }
   }
 }
 
