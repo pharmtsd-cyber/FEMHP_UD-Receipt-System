@@ -1,6 +1,6 @@
 // js/config.js
 // 請將下方字串替換為您 GAS 部署為網頁應用程式後的 URL
-const GAS_API_URL = "https://script.google.com/macros/s/您的部署ID/exec";
+const GAS_API_URL = "https://script.google.com/macros/s/AKfycbzW-FXXIYAWWTaMyD5ppmt732aqzVqpsDCemhfLetHB3ja08zQZqhA2PD-zYLgEfjym/exec";
 
 // 封裝與 GAS 溝通的共用函數
 async function callGAS(action, dataObj) {
