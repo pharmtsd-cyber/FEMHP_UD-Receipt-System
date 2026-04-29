@@ -282,6 +282,7 @@ async function refreshDocProgress() {
 
   if (result.success) {
     container.innerHTML = '';
+    // 如果目前沒有待處理或被退件的單子
     if (result.data.length === 0) {
       container.innerHTML = '<div class="text-muted text-center py-5 fs-4">目前無處理中的單據，已全部結案！</div>';
       return;
@@ -294,20 +295,19 @@ async function refreshDocProgress() {
       let borderClass = "border-warning";
       let needsAction = false; 
 
-      if (item.status === "藥師已收單") {
-        if (item.replyOption === '掛牌待傳送領回' || item.replyOption === '退件') {
-          statusClass = "bg-danger text-white"; // 變成紅色提醒
-          borderClass = "border-danger";
-          needsAction = true;
-        } else {
-          statusClass = "bg-primary text-white";
-          borderClass = "border-primary";
-        }
+      // ★ 依照後端傳來的精準狀態，決定顏色與按鈕
+      if (item.status === '掛牌待傳送領回' || item.status === '退件') {
+        statusClass = "bg-danger text-white"; // 變成紅色，強烈提醒傳送人員
+        borderClass = "border-danger";
+        needsAction = true;
+      } else if (item.status === '待藥師收單') {
+        statusClass = "bg-warning text-dark"; // 維持黃色處理中
+        borderClass = "border-warning";
       }
 
       card.className = `card mb-3 shadow-sm ${borderClass} border-2`;
       
-      // 動態生成按鈕 HTML
+      // 動態生成領回按鈕
       const actionBtnHtml = needsAction 
         ? `<button class="btn btn-success btn-lg fw-bold w-100 mt-3 shadow-sm" onclick="acknowledgeReturn('${item.signId}')"><i class="bi bi-check2-circle me-1"></i> 點我確認領回 (歸檔)</button>` 
         : '';
@@ -315,7 +315,8 @@ async function refreshDocProgress() {
       card.innerHTML = `
         <div class="card-body py-3 px-4">
           <div class="d-flex justify-content-between align-items-center mb-2">
-            <span class="badge ${statusClass} fs-5 px-3 py-2">${item.status} ${item.replyOption ? ` - ${item.replyOption}` : ''}</span>
+            <!-- 直接顯示乾淨的狀態文字 -->
+            <span class="badge ${statusClass} fs-5 px-3 py-2">${item.status}</span>
             <span class="text-muted fs-5">${item.sendTime} 送出</span>
           </div>
           <div class="row align-items-center mt-3">
@@ -326,7 +327,7 @@ async function refreshDocProgress() {
             </div>
             <div class="col-5 text-end border-start">
               <p class="mb-1 fs-5 text-muted">收單藥師</p>
-              <p class="mb-0 fs-4 fw-bold ${item.pharmaName ? 'text-primary' : 'text-warning'}">${item.pharmaName || '等待中'}</p>
+              <p class="mb-0 fs-4 fw-bold ${item.pharmaName === '等待中' ? 'text-warning' : 'text-primary'}">${item.pharmaName}</p>
             </div>
           </div>
           ${actionBtnHtml}
