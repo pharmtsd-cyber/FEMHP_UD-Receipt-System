@@ -1,7 +1,7 @@
 // js/transport.js
 
 // ==========================================
-// 音效模組 (使用瀏覽器內建 Web Audio API，無須外部音檔)
+// 音效模組 (使用瀏覽器內建 Web Audio API)
 // ==========================================
 function playSuccessSound() {
   const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -10,7 +10,7 @@ function playSuccessSound() {
   const osc = ctx.createOscillator();
   const gainNode = ctx.createGain();
   osc.type = 'sine';
-  osc.frequency.setValueAtTime(800, ctx.currentTime); // 高音「叮」
+  osc.frequency.setValueAtTime(800, ctx.currentTime); 
   gainNode.gain.setValueAtTime(0.1, ctx.currentTime);
   gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
   osc.connect(gainNode);
@@ -26,7 +26,7 @@ function playErrorSound() {
   const osc = ctx.createOscillator();
   const gainNode = ctx.createGain();
   osc.type = 'sawtooth';
-  osc.frequency.setValueAtTime(150, ctx.currentTime); // 低沉警告音「叭」
+  osc.frequency.setValueAtTime(150, ctx.currentTime); 
   osc.frequency.linearRampToValueAtTime(100, ctx.currentTime + 0.3);
   gainNode.gain.setValueAtTime(0.2, ctx.currentTime);
   gainNode.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.3);
@@ -79,10 +79,10 @@ document.addEventListener('DOMContentLoaded', () => {
       const barcodeValue = barcodeInput.value.trim();
       if (!barcodeValue) return;
 
-      // 驗證條碼格式
+      // 驗證條碼格式與領藥號防呆 (不對後端，純前端檢查，不影響速度)
       const parts = barcodeValue.split(';');
       if (parts.length < 5 || !parts[2] || !parts[2].startsWith('8')) {
-        playErrorSound(); // ★ 格式錯誤音效
+        playErrorSound(); 
         Swal.fire({
           icon: 'error',
           title: '條碼格式錯誤',
@@ -109,92 +109,42 @@ document.addEventListener('DOMContentLoaded', () => {
         staffName: transName,
         chartNo: chartNo,
         dispenseNo: dispenseNo,
-        rxDate: rxDate,
-        overwrite: false
+        rxDate: rxDate
       };
 
-      // ★ 核心改變 1：瞬間清空讓人員繼續盲刷，但「不馬上顯示在右側清單」
+      // ★ 回復：瞬間畫出「處理中(黃邊)」卡片，並清空輸入框保持 focus，讓人員可以無縫連刷
+      const cardId = 'card_' + Date.now();
+      addCardToUI(payload, cardId, true); 
+      
       barcodeInput.value = '';
       barcodeInput.focus();
 
-      // 向後端發送驗證與寫入請求
-      let result = await callGAS('logDischargeMeds', { payload: payload });
+      // 非同步發送寫入請求 (不等待後端回應，人員可繼續刷下一個)
+      const result = await callGAS('logDischargeMeds', { payload: payload });
       
-      // ★ 核心改變 2：後端回傳重複，立刻擋下並發出警告聲！
-      if (result.isDuplicate) {
-        playErrorSound(); // 播放警告音
-
-        const ext = result.existingRecord;
-        const alertHtml = `
-          <div class="text-danger fw-bold fs-4 mb-3">此處方日期的領藥號已被簽收過！</div>
-          <div class="card shadow-sm border-danger border-2 text-start mb-3">
-            <div class="card-body py-3 px-4 bg-light">
-              <div class="d-flex justify-content-between align-items-center mb-2">
-                <h3 class="m-0 text-danger fw-bold">領藥號：${ext.dispNo}</h3>
-                <span class="text-muted fs-4">${ext.time}</span>
-              </div>
-              <div class="mb-2 fs-5 text-secondary">
-                病歷號：<span class="fw-bold text-dark">${ext.chartNo}</span> | 處方日期：${ext.rxDate}
-              </div>
-              <div class="fs-5 text-secondary border-top pt-2">
-                <span class="badge bg-danger me-2 fs-6">${ext.type}</span>
-                已被 <span class="fw-bold text-danger">${ext.staffName}</span> (${ext.staffId}) 簽收
-              </div>
-            </div>
-          </div>
-          <div class="fs-5 text-dark mt-2">
-            您確定要用 <span class="text-success fw-bold">${transName}</span> 的身分<br>覆蓋這筆紀錄嗎？
-          </div>
-        `;
-
-        const confirmOverwrite = await Swal.fire({
-          html: alertHtml,
-          icon: 'warning',
-          showCancelButton: true,
-          confirmButtonText: '是，確認覆蓋',
-          cancelButtonText: '否，取消',
-          confirmButtonColor: '#198754',
-          cancelButtonColor: '#6c757d',
-          allowOutsideClick: false, // 防止誤觸關閉
-          width: '600px'
-        });
-
-        if (confirmOverwrite.isConfirmed) {
-          payload.overwrite = true;
-          let overwriteResult = await callGAS('logDischargeMeds', { payload: payload });
-          
-          if (overwriteResult.success) {
-            playSuccessSound(); // 覆蓋成功音效
-            addCardToUI(payload, 'card_' + Date.now()); // 覆蓋成功才畫出卡片
-          } else {
-            playErrorSound();
-            Swal.fire('錯誤', '覆蓋寫入失敗', 'error');
-          }
-        }
-        barcodeInput.focus();
-        return; // 結束這回合
-      }
-
-      // ★ 核心改變 3：不是重複且寫入成功，發出「叮」聲，卡片正式進駐清單！
+      // 等後端寫入完畢後，再更新卡片狀態並發出音效
       if (result.success) {
-        playSuccessSound(); // 成功音效
-        addCardToUI(payload, 'card_' + Date.now()); 
-      } else if (!result.isDuplicate) {
+        playSuccessSound(); 
+        const successCard = document.getElementById(cardId);
+        if(successCard) successCard.classList.replace('border-warning', 'border-success');
+      } else {
         playErrorSound();
-        Swal.fire('寫入失敗', '請重新刷入或檢查網路狀態', 'error');
+        const errorCard = document.getElementById(cardId);
+        if(errorCard){
+          errorCard.classList.replace('border-warning', 'border-danger');
+          errorCard.querySelector('.card-body').innerHTML += `<div class="text-danger mt-2 fs-5 fw-bold">寫入失敗，請重試</div>`;
+        }
       }
-      
-      barcodeInput.focus();
     }
   });
 
-  // 4. 繪製卡片 UI (直接預設為成功狀態的綠色邊框)
-  function addCardToUI(data, cardId) {
+  // 4. 繪製卡片 UI 
+  function addCardToUI(data, cardId, isPending) {
     if (emptyState) emptyState.style.display = 'none';
 
     const card = document.createElement('div');
     card.id = cardId;
-    card.className = `card mb-3 shadow-sm border-success border-2`;
+    card.className = `card mb-3 shadow-sm ${isPending ? 'border-warning' : 'border-success'} border-2`;
     
     const now = new Date();
     const timeString = `${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}:${now.getSeconds().toString().padStart(2,'0')}`;
