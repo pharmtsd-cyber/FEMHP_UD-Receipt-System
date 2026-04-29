@@ -1,7 +1,4 @@
-// js/transport.js
-
 document.addEventListener('DOMContentLoaded', () => {
-  // 1. 初始化日期 (隱藏欄位)
   const today = new Date().toISOString().split('T')[0];
   document.getElementById('medDate').value = today;
 
@@ -9,6 +6,7 @@ document.addEventListener('DOMContentLoaded', () => {
     staffId: document.getElementById('staffId'),
     staffName: document.getElementById('staffName'),
     btnClear: document.getElementById('btnClearStaff'),
+    barcodeSection: document.getElementById('barcodeSection'), // ★ 新增區塊綁定
     barcode: document.getElementById('barcodeInput'),
     cardContainer: document.getElementById('cardContainer'),
     totalCount: document.getElementById('totalCount'),
@@ -17,27 +15,22 @@ document.addEventListener('DOMContentLoaded', () => {
   
   let scanCount = 0;
 
-  // 2. 清空按鈕邏輯
+  // 清空按鈕：隱藏條碼區，游標回到員工編號
   dom.btnClear.addEventListener('click', () => {
     dom.staffId.value = '';
     dom.staffName.value = '';
     dom.barcode.value = '';
-    dom.barcode.disabled = true;
-    dom.barcode.placeholder = "請先驗證上方員工編號";
-    dom.staffId.focus();
+    dom.barcodeSection.classList.add('d-none'); // ★ 隱藏條碼區
+    dom.staffId.focus(); // ★ 游標回到員編
   });
 
-  // 3. 員工編號驗證 (傳送人員專用)
   dom.staffId.addEventListener('keypress', async (e) => {
     if (e.key === 'Enter') {
       e.preventDefault();
       const id = dom.staffId.value.trim();
-      
       if (!id) return;
 
       Swal.fire({ title: '驗證中...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
-
-      // 呼叫 API，role 鎖定為 'transport'
       const result = await callGAS('verifyStaff', { staffId: id, role: 'transport' });
       
       if (result.success) {
@@ -45,7 +38,6 @@ document.addEventListener('DOMContentLoaded', () => {
         dom.staffName.value = result.name;
         unlockBarcode();
       } else {
-        // 查無此人的特殊提示邏輯
         Swal.fire({
           title: '查無此人',
           text: '您是否為傳送人員？',
@@ -67,13 +59,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  // ★ 解鎖函數：顯示條碼區，游標移至條碼框
   function unlockBarcode() {
-    dom.barcode.disabled = false;
-    dom.barcode.placeholder = "請刷入藥袋條碼...";
+    dom.barcodeSection.classList.remove('d-none');
     dom.barcode.focus();
   }
 
-  // 4. 連續刷條碼邏輯
   dom.barcode.addEventListener('keypress', async (e) => {
     if (e.key === 'Enter') {
       e.preventDefault();
@@ -83,22 +74,18 @@ document.addEventListener('DOMContentLoaded', () => {
       const payload = {
         date: document.getElementById('medDate').value,
         barcode: barcodeValue,
-        type: '傳送', // ★ 後台直接鎖定為傳送
+        type: '傳送',
         staffId: dom.staffId.value,
         staffName: dom.staffName.value
       };
 
-      // 立即在前端繪製處理中的卡片
       const cardId = 'card_' + Date.now();
       addCardToUI(payload, cardId, true);
       
-      // 清空並保持 focus
       dom.barcode.value = '';
-      dom.barcode.focus();
+      dom.barcode.focus(); // ★ 保持游標在條碼框
 
-      // 發送寫入請求
       const result = await callGAS('logDischargeMeds', { payload: payload });
-      
       if (result.success) {
         document.getElementById(cardId).classList.replace('border-warning', 'border-success');
       } else {
@@ -109,17 +96,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // 5. 繪製卡片 UI
   function addCardToUI(data, cardId, isPending) {
     if (dom.emptyState) dom.emptyState.style.display = 'none';
-
     const card = document.createElement('div');
     card.id = cardId;
     card.className = `card mb-2 shadow-sm ${isPending ? 'border-warning' : 'border-success'}`;
-    
     const now = new Date();
     const timeString = `${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}:${now.getSeconds().toString().padStart(2,'0')}`;
-
     card.innerHTML = `
       <div class="card-body py-2 px-3">
         <div class="d-flex justify-content-between align-items-center">
@@ -132,7 +115,6 @@ document.addEventListener('DOMContentLoaded', () => {
         </div>
       </div>
     `;
-
     dom.cardContainer.insertBefore(card, dom.cardContainer.firstChild);
     scanCount++;
     dom.totalCount.textContent = scanCount;
