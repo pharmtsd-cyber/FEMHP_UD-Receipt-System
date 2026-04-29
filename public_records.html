@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>今日出院帶藥總表 - 住院藥局收發系統</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+</head>
+<body class="bg-light">
+
+  <nav class="navbar navbar-dark bg-secondary mb-4 shadow-sm px-3">
+    <div class="container-fluid">
+      <span class="navbar-brand mb-0 h1 fs-3"><i class="bi bi-card-checklist me-2"></i>今日出院帶藥總表 (依領藥號排序)</span>
+      <a href="index.html" class="btn btn-outline-light">返回首頁</a>
+    </div>
+  </nav>
+
+  <div class="container">
+    <div class="card shadow">
+      <div class="card-body p-4">
+        <h4 class="mb-4 text-center text-primary fw-bold" id="dateTitle">載入中...</h4>
+        
+        <div class="table-responsive">
+          <table class="table table-hover table-striped align-middle fs-5">
+            <thead class="table-dark">
+              <tr>
+                <th>序號</th>
+                <th>領藥號</th>
+                <th>病歷號</th>
+                <th>處方日期</th>
+                <th>簽收人</th>
+                <th>簽收時間</th>
+              </tr>
+            </thead>
+            <tbody id="recordsTableBody">
+              <tr>
+                <td colspan="6" class="text-center text-muted py-4">資料載入中，請稍候...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      // 取得今天日期字串 (YYYY-MM-DD)
+      const today = new Date().toISOString().split('T')[0];
+      document.getElementById('dateTitle').textContent = `📅 查詢日期：${today}`;
+
+      // 呼叫 GAS 取得今日紀錄
+      const result = await callGAS('getDailyRecords', { date: today });
+      
+      const tbody = document.getElementById('recordsTableBody');
+      tbody.innerHTML = ''; // 清空載入中提示
+
+      if (result.success && result.data.length > 0) {
+        result.data.forEach((record, index) => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${index + 1}</td>
+            <td class="text-success fw-bold">${record.dispNo}</td>
+            <td class="font-monospace">${record.chartNo}</td>
+            <td>${record.rxDate}</td>
+            <td>${record.staffName}</td>
+            <td class="text-muted">${record.time}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+      } else {
+        tbody.innerHTML = `<tr><td colspan="6" class="text-center text-danger py-4">今日尚無出院帶藥簽收紀錄</td></tr>`;
+      }
+    });
+  </script>
+</body>
+</html>
