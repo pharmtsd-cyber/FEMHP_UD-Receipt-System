@@ -269,12 +269,16 @@ function logout() {
     }
   });
 
-  // 3. 處理文件送件提交
+// 3. 處理文件送件提交
   document.getElementById('docForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     
     const docType = document.getElementById('docTypeSelect').value;
     if (!docType) return;
+
+    // ★ 完美解法：直接在這裡重新從 sessionStorage 讀取，絕對不會找不到！
+    const currentTransId = sessionStorage.getItem('transId') || '未知編號';
+    const currentTransName = sessionStorage.getItem('transName') || '未知人員';
 
     // 收集動態欄位資料
     const dynamicData = {};
@@ -282,20 +286,22 @@ function logout() {
       dynamicData[input.name] = input.value.trim();
     });
 
+    // 打包準備送給 GAS 的資料
     const payload = {
       '送件類型': docType,
       '送件備註': document.getElementById('docNote').value.trim(),
-      '送件傳送員工編號': transId,
-      '送件傳送名稱': transName,
+      '送件傳送員工編號': currentTransId,  // 改用剛剛重新讀取的變數
+      '送件傳送名稱': currentTransName,      // 改用剛剛重新讀取的變數
       ...dynamicData // 合併動態生成的欄位資料
     };
 
     Swal.fire({ title: '傳送中...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
 
+    // 呼叫 GAS 寫入資料
     const result = await callGAS('submitDocTransfer', { payload: payload });
 
     if (result.success) {
-      playSuccessSound();
+      playSuccessSound(); // 播放成功叮叮聲
       Swal.fire({
         icon: 'success',
         title: '送件成功！',
@@ -303,13 +309,14 @@ function logout() {
         timer: 2000,
         showConfirmButton: false
       });
+      // 清空表單並恢復預設畫面
       document.getElementById('docForm').reset();
       document.getElementById('dynamicFieldsContainer').innerHTML = '<div class="text-muted text-center py-5 fs-4">請先選擇送件類型</div>';
       
       // 送件成功後自動重整右側進度
       refreshDocProgress();
     } else {
-      playErrorSound();
+      playErrorSound(); // 播放失敗叭叭聲
       Swal.fire('失敗', result.message, 'error');
     }
   });
