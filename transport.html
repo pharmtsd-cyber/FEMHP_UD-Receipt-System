@@ -3,73 +3,66 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>傳送專區 - 住院藥局收發系統</title>
+  <title>傳送登入 - 住院藥局收發系統</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-  <style>
-    #barcodeInput:focus { border-color: #198754; box-shadow: 0 0 0 0.25rem rgba(25,135,84,0.25); background-color: #f8f9fa; }
-  </style>
 </head>
-<body class="bg-light">
-  <!-- 頂部導覽 -->
-  <nav class="navbar navbar-dark bg-success mb-4 shadow-sm">
-    <div class="container-fluid">
-      <span class="navbar-brand mb-0 h1">🏃‍♂️ 傳送人員作業專區</span>
-      <a href="index.html" class="btn btn-outline-light btn-sm">返回首頁</a>
-    </div>
-  </nav>
-
+<body class="bg-light d-flex align-items-center" style="min-height: 100vh;">
   <div class="container">
-    <div class="row">
-      <!-- 左側：操作區 -->
-      <div class="col-md-5 mb-3">
-        <div class="card shadow-sm border-success">
-          <div class="card-body">
-            <h5 class="card-title text-success mb-4 fw-bold">出院帶藥簽收</h5>
+    <div class="row justify-content-center">
+      <div class="col-md-5">
+        <div class="card shadow border-success">
+          <div class="card-body p-5">
+            <div class="text-center mb-4">
+              <h2 class="text-success fw-bold" style="font-size: 2.5rem;">傳送人員登入</h2>
+              <p class="text-muted fs-5">請輸入您的員工編號</p>
+            </div>
             
-            <!-- 隱藏的日期欄位，後端/前端自動帶入今天 -->
-            <input type="hidden" id="medDate">
-            
-            <div class="mb-3">
-              <label class="form-label text-secondary fw-bold">1. 傳送員工編號</label>
-              <div class="input-group">
-                <input type="text" id="staffId" class="form-control form-control-lg" placeholder="刷入編號 (按Enter)" autofocus>
-                <button class="btn btn-outline-danger" id="btnClearStaff">清空重來</button>
+            <form id="tLoginForm">
+              <div class="mb-4">
+                <label class="form-label fw-bold fs-4">員工編號</label>
+                <!-- 特別放大的輸入框 -->
+                <input type="text" class="form-control" style="font-size: 2rem; padding: 15px;" id="tLoginId" required autofocus>
               </div>
-            </div>
+              <button type="submit" class="btn btn-success w-100 fw-bold" style="font-size: 1.8rem; padding: 12px;">登 入</button>
+            </form>
             
-            <div class="mb-4">
-              <label class="form-label text-secondary fw-bold">傳送人員名稱</label>
-              <input type="text" id="staffName" class="form-control bg-light text-primary fw-bold" readonly placeholder="驗證後自動帶入">
+            <div class="text-center mt-4">
+              <a href="index.html" class="text-decoration-none text-secondary fs-5">← 返回首頁</a>
             </div>
-            <!-- ★ 加入 ID 並預設隱藏 (d-none) -->
-            <div id="barcodeSection" class="d-none">
-              <hr>
-              <div class="mb-3">
-                <label class="form-label text-success fw-bold fs-5">2. 連續刷條碼區</label>
-                <input type="text" id="barcodeInput" class="form-control form-control-lg border-success" placeholder="請刷入藥袋條碼...">
-                <div class="form-text mt-2">刷入條碼後將自動送出，可連續刷入。</div>
-              </div>
-            </div>
-        </div>
-      </div>
-
-      <!-- 右側：資料顯示區 -->
-      <div class="col-md-7">
-        <div class="d-flex justify-content-between align-items-center mb-3">
-          <h5 class="m-0 text-success fw-bold">今日已簽收項目</h5>
-          <span class="badge bg-success fs-6">總筆數: <span id="totalCount">0</span></span>
-        </div>
-        <!-- 卡片容器 -->
-        <div id="cardContainer" style="max-height: 600px; overflow-y: auto; padding-right: 5px;">
-          <div class="text-muted text-center mt-5" id="emptyState">目前尚無紀錄</div>
+          </div>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- 引入設定檔與邏輯 -->
   <script src="js/config.js"></script>
-  <script src="js/transport.js"></script>
+  <script>
+    document.getElementById('tLoginForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const id = document.getElementById('tLoginId').value.trim();
+      if(!id) return;
+
+      Swal.fire({ title: '登入中...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+      const result = await callGAS('transportLogin', { staffId: id });
+
+      if (result.success) {
+        // 存入 sessionStorage
+        sessionStorage.setItem('transId', result.staffId);
+        sessionStorage.setItem('transName', result.name);
+        
+        Swal.fire({
+          icon: 'success',
+          title: `登入成功！\n${result.name} 您好`,
+          timer: 1500,
+          showConfirmButton: false
+        }).then(() => {
+          window.location.href = 'transport_dashboard.html';
+        });
+      } else {
+        Swal.fire('登入失敗', result.message, 'error');
+      }
+    });
+  </script>
 </body>
 </html>
