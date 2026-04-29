@@ -322,39 +322,51 @@ function logout() {
   });
 
 // === 渲染文件進度卡片 ===
+// === 渲染文件進度卡片 (傳送端) ===
 async function refreshDocProgress() {
   const container = document.getElementById('docRecordContainer');
-  // 顯示載入中
-  container.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary" style="width: 3rem; height: 3rem;"></div><p class="mt-3 fs-4 text-muted">讀取進度中...</p></div>';
+  container.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary"></div><p class="mt-2 fs-4">讀取進度中...</p></div>';
 
   const result = await callGAS('getTodayDocRecords', {});
 
   if (result.success) {
     container.innerHTML = '';
+    // 如果後端過濾完已結案後，陣列為空
     if (result.data.length === 0) {
-      container.innerHTML = '<div class="text-muted text-center py-5 fs-4">今日尚無送件紀錄</div>';
+      container.innerHTML = '<div class="text-muted text-center py-5 fs-4">目前無處理中的單據，已全部結案！</div>';
       return;
     }
 
     result.data.forEach(item => {
       const card = document.createElement('div');
       
-      // 根據狀態設定顏色
-      let statusClass = "bg-warning text-dark"; // 待收單
+      let statusClass = "bg-warning text-dark"; 
       let borderClass = "border-warning";
+      // 判斷是否需要傳送人員操作 (掛牌待領回 或 退件)
+      let needsAction = false; 
+
       if (item.status === "藥師已收單") {
-        statusClass = "bg-primary text-white";
-        borderClass = "border-primary";
-      } else if (item.status === "已領回") {
-        statusClass = "bg-success text-white";
-        borderClass = "border-success";
+        if (item.replyOption === '掛牌待傳送領回' || item.replyOption === '退件') {
+          statusClass = "bg-danger text-white"; // 變成紅色提醒傳送要處理
+          borderClass = "border-danger";
+          needsAction = true;
+        } else {
+          statusClass = "bg-primary text-white";
+          borderClass = "border-primary";
+        }
       }
 
       card.className = `card mb-3 shadow-sm ${borderClass} border-2`;
+      
+      // 動態生成按鈕 HTML
+      const actionBtnHtml = needsAction 
+        ? `<button class="btn btn-success btn-lg fw-bold w-100 mt-3 shadow-sm" onclick="acknowledgeReturn('${item.signId}')"><i class="bi bi-check2-circle me-1"></i> 點我確認領回 (歸檔)</button>` 
+        : '';
+
       card.innerHTML = `
         <div class="card-body py-3 px-4">
           <div class="d-flex justify-content-between align-items-center mb-2">
-            <span class="badge ${statusClass} fs-5 px-3 py-2">${item.status}</span>
+            <span class="badge ${statusClass} fs-5 px-3 py-2">${item.status} ${item.replyOption ? ` - ${item.replyOption}` : ''}</span>
             <span class="text-muted fs-5">${item.sendTime} 送出</span>
           </div>
           <div class="row align-items-center mt-3">
@@ -362,23 +374,48 @@ async function refreshDocProgress() {
               <h3 class="fw-bold text-dark mb-2">${item.type}</h3>
               <p class="fs-4 mb-1 text-secondary">病房：<span class="text-primary fw-bold">${item.ward || '無'}</span></p>
               <p class="fs-4 mb-0 text-secondary">病歷號：<span class="text-dark font-monospace">${item.chartNo || '無'}</span></p>
-              ${item.note ? `<p class="fs-5 text-danger mt-2 mb-0 fw-bold"><i class="bi bi-exclamation-circle me-1"></i>備註：${item.note}</p>` : ''}
             </div>
             <div class="col-5 text-end border-start">
-              <p class="mb-2 fs-5 text-muted">送件員</p>
-              <p class="mb-3 fs-4 fw-bold text-dark">${item.sender}</p>
               <p class="mb-1 fs-5 text-muted">收單藥師</p>
-              <p class="mb-0 fs-4 fw-bold ${item.pharmaName ? 'text-primary' : 'text-warning'}">${item.pharmaName || '等待收單中'}</p>
+              <p class="mb-0 fs-4 fw-bold ${item.pharmaName ? 'text-primary' : 'text-warning'}">${item.pharmaName || '等待中'}</p>
             </div>
           </div>
+          ${actionBtnHtml}
         </div>
       `;
       container.appendChild(card);
     });
-  } else {
-    container.innerHTML = '<div class="alert alert-danger fs-4 m-3">資料載入失敗</div>';
   }
 }
+
+// === 傳送人員點擊「確認領回」===
+async function acknowledgeReturn(signId) {
+  const confirm = await Swal.fire({
+    title: '確認已領回文件？',
+    text: "確認後，這筆單據將結案並從清單中移除。",
+    icon: 'question',
+    showCancelButton: true,
+    confirmButtonColor: '#198754',
+    confirmButtonText: '是的，已領回'
+  });
+
+  if (confirm.isConfirmed) {
+    Swal.fire({ title: '歸檔中...', didOpen: () => Swal.showLoading() });
+    const payload = {
+      signId: signId,
+      transId: sessionStorage.getItem('transId'),
+      transName: sessionStorage.getItem('transName')
+    };
+    const res = await callGAS('acknowledgeDocReturn', { payload: payload });
+    if (res.success) {
+      playSuccessSound();
+      Swal.fire({ icon: 'success', title: '已結案歸檔', timer: 1000, showConfirmButton: false });
+      refreshDocProgress(); // 歸檔後重整，單子就會消失了！
+    }
+  }
+}
+
+// 記得把這個新函數放在 js/transport.js 的最底層或合適位置
 
 // 綁定「重整進度」按鈕
 document.getElementById('btnRefreshDoc').addEventListener('click', refreshDocProgress);
