@@ -1,71 +1,62 @@
 // js/pharmacist.js
 
-let currentPharmaId = '';
-let currentPharmaName = '';
-let replyOptionsData = []; // 儲存從資料庫抓來的回覆選項
+let currentPharmaId = sessionStorage.getItem('pharmaId');
+let currentPharmaName = sessionStorage.getItem('pharmaName');
+let replyOptionsData = []; 
 
 document.addEventListener('DOMContentLoaded', async () => {
-  // 1. 驗證登入
-  currentPharmaId = sessionStorage.getItem('pharmaId');
-  currentPharmaName = sessionStorage.getItem('pharmaName');
-
   if (!currentPharmaId || !currentPharmaName) {
-    Swal.fire('未授權', '請先登入', 'warning').then(() => {
-      window.location.href = 'pharmacist_login.html';
-    });
+    window.location.href = 'pharmacist_login.html';
     return;
   }
-
-  document.getElementById('displayPharma').textContent = `${currentPharmaName} 藥師 (${currentPharmaId})`;
-
-  // 2. 載入藥師回覆選項下拉清單
+  document.getElementById('displayPharma').textContent = `${currentPharmaName} 藥師`;
+  
   const optResult = await callGAS('getPharmaReplyOptions', {});
-  if (optResult.success) {
-    replyOptionsData = optResult.data;
-  }
-
-  // 3. 初始化載入資料
+  if (optResult.success) replyOptionsData = optResult.data;
+  
   refreshPharmaDocs();
 });
 
-// === 取得並渲染收單列表 ===
+// === 渲染藥師緊湊版介面 ===
 async function refreshPharmaDocs() {
   const pendingBox = document.getElementById('pendingContainer');
   const completedBox = document.getElementById('completedContainer');
   const countBadge = document.getElementById('pendingDocCount');
 
-  pendingBox.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-warning"></div><p class="mt-2 fs-4">抓取單據中...</p></div>';
-  completedBox.innerHTML = '<div class="text-center py-5"><div class="spinner-border text-primary"></div><p class="mt-2 fs-4">抓取紀錄中...</p></div>';
+  pendingBox.innerHTML = '<div class="text-center py-3">讀取中...</div>';
+  completedBox.innerHTML = '<div class="text-center py-3">讀取中...</div>';
 
   const result = await callGAS('getPharmaDocRecords', {});
 
   if (result.success) {
+    // === 左側：待收單 ===
     const pendingData = result.data.pending;
     countBadge.textContent = pendingData.length; 
     
-    // 渲染待收單
     if (pendingData.length === 0) {
-      pendingBox.innerHTML = '<div class="text-muted text-center py-5 fs-4">太棒了！目前沒有待處理的單據。</div>';
+      pendingBox.innerHTML = '<div class="text-muted text-center py-4">無待處理單據</div>';
     } else {
       pendingBox.innerHTML = '';
       pendingData.forEach(item => {
+        // 使用緊湊型卡片 (p-2, fs-6)
         const card = document.createElement('div');
-        card.className = 'card mb-3 shadow-sm border-warning border-2';
+        card.className = 'card mb-2 shadow-sm border-warning border-start border-4';
         card.innerHTML = `
-          <div class="card-body p-4">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-              <h3 class="fw-bold text-dark m-0">${item.type}</h3>
-              <span class="text-danger fw-bold fs-5"><i class="bi bi-clock me-1"></i>${item.sendTime} 送達</span>
+          <div class="card-body p-2">
+            <div class="d-flex justify-content-between mb-1">
+              <strong class="text-dark fs-6">${item.type}</strong>
+              <small class="text-danger fw-bold">${item.sendTime} 送達</small>
             </div>
-            <p class="fs-4 mb-1">病房：<span class="text-primary fw-bold">${item.ward || '無'}</span></p>
-            <p class="fs-4 mb-2">病歷號：<span class="font-monospace">${item.chartNo || '無'}</span></p>
-            ${item.sendNote ? `<div class="alert alert-danger py-2 mb-3 fs-5"><i class="bi bi-exclamation-triangle-fill me-2"></i>傳送備註：${item.sendNote}</div>` : ''}
-            
-            <div class="d-flex justify-content-between align-items-end mt-3 border-top pt-3">
-              <span class="text-muted fs-5">送件員：${item.sender}</span>
-              <button class="btn btn-warning btn-lg fw-bold px-4" onclick="receiveDoc('${item.signId}')">
-                <i class="bi bi-box-arrow-in-down me-2"></i>進行收單
-              </button>
+            <div class="fs-6 mb-2">
+              <span class="me-3">病房: <strong class="text-primary">${item.ward || '無'}</strong></span>
+              <span>病歷號: <strong>${item.chartNo || '無'}</strong></span>
+              <!-- 編輯按鈕 (鉛筆) -->
+              <button class="btn btn-sm btn-link py-0 px-1 text-secondary" onclick="editDocInfo('${item.signId}', '${item.ward}', '${item.chartNo}')"><i class="bi bi-pencil-square"></i> 修改</button>
+            </div>
+            ${item.sendNote ? `<div class="text-danger small mb-2 bg-light p-1 rounded">備註: ${item.sendNote}</div>` : ''}
+            <div class="d-flex justify-content-between align-items-center mt-1">
+              <small class="text-muted">傳送: ${item.sender}</small>
+              <button class="btn btn-warning btn-sm fw-bold" onclick="receiveDoc('${item.signId}')">進行收單</button>
             </div>
           </div>
         `;
@@ -73,108 +64,118 @@ async function refreshPharmaDocs() {
       });
     }
 
-    // 渲染已收單 (加入回覆狀態顯示)
+    // === 右側：已收單 (加入撤銷按鈕) ===
     const completedData = result.data.completed;
     if (completedData.length === 0) {
-      completedBox.innerHTML = '<div class="text-muted text-center py-5 fs-4">今日尚未有收單紀錄</div>';
+      completedBox.innerHTML = '<div class="text-muted text-center py-4">無收單紀錄</div>';
     } else {
       completedBox.innerHTML = '';
       completedData.forEach(item => {
+        const isClosed = item.replyOption === '收下不歸還';
         const card = document.createElement('div');
-        card.className = 'card mb-3 shadow-sm border-primary border-2';
+        card.className = `card mb-2 shadow-sm border-start border-4 ${isClosed ? 'border-success' : 'border-primary'}`;
         card.innerHTML = `
-          <div class="card-body p-3">
-            <div class="d-flex justify-content-between align-items-center mb-1">
-              <h4 class="fw-bold text-primary m-0">${item.type}</h4>
-              <span class="text-muted fs-5">${item.receiveTime} 已收</span>
+          <div class="card-body p-2">
+            <div class="d-flex justify-content-between mb-1">
+              <strong class="text-primary fs-6">${item.type}</strong>
+              <small class="text-muted">${item.receiveTime} 收</small>
             </div>
-            <p class="fs-5 mb-1 text-secondary">病房：${item.ward || '無'} | 病歷號：${item.chartNo || '無'}</p>
-            
-            <!-- ★ 顯示藥師的回覆狀態與備註 -->
-            <div class="bg-light p-2 mt-2 rounded border">
-              <span class="badge ${item.replyOption === '收下不歸還' ? 'bg-success' : 'bg-danger'} fs-6 me-2">${item.replyOption}</span>
-              <span class="text-dark fs-5">${item.receiveNote || '無備註'}</span>
+            <div class="small text-secondary mb-1">
+              病房: ${item.ward || '無'} | 病歷號: ${item.chartNo || '無'}
             </div>
-
-            <div class="text-end mt-2">
-              <span class="badge bg-primary fs-6">收單人：${item.pharmaName}</span>
+            <div class="d-flex justify-content-between align-items-center mt-2">
+              <div>
+                <span class="badge ${isClosed ? 'bg-success' : 'bg-danger'}">${item.replyOption}</span>
+              </div>
+              <!-- 撤銷收單按鈕 -->
+              <button class="btn btn-outline-danger btn-sm py-0" onclick="revertDoc('${item.signId}')">撤銷</button>
             </div>
           </div>
         `;
         completedBox.appendChild(card);
       });
     }
-  } else {
-    pendingBox.innerHTML = '<div class="alert alert-danger fs-4 m-3">資料載入失敗</div>';
-    completedBox.innerHTML = '<div class="alert alert-danger fs-4 m-3">資料載入失敗</div>';
   }
 }
 
-// === 點擊確認收單的彈出邏輯 (改為自訂表單含下拉選單) ===
-async function receiveDoc(signId) {
-  // 生成下拉選單的 HTML
-  let optionsHtml = replyOptionsData.map(opt => `<option value="${opt}">${opt}</option>`).join('');
-
-  const { value: formValues, isConfirmed } = await Swal.fire({
-    title: '處理收件單',
+// === 藥師修改傳送填錯的資料 ===
+async function editDocInfo(signId, currentWard, currentChartNo) {
+  const { value: formValues } = await Swal.fire({
+    title: '修改資料',
     html: `
-      <div class="mb-4 text-start">
-        <label class="form-label fw-bold fs-5">後續處置方式 <span class="text-danger">*</span></label>
-        <select id="swal-reply-opt" class="form-select form-select-lg border-primary">
-          <option value="">請選擇處置方式...</option>
-          ${optionsHtml}
-        </select>
-      </div>
-      <div class="mb-2 text-start">
-        <label class="form-label fw-bold fs-5">給傳送的備註 (選填)</label>
-        <input id="swal-note" class="form-control form-control-lg" placeholder="例如：藥品已備妥，請核對...">
-      </div>
+      <input id="swal-ward" class="form-control mb-2" value="${currentWard === 'undefined' ? '' : currentWard}" placeholder="病房床號">
+      <input id="swal-chart" class="form-control" value="${currentChartNo === 'undefined' ? '' : currentChartNo}" placeholder="病歷號">
     `,
     focusConfirm: false,
     showCancelButton: true,
-    confirmButtonText: '<i class="bi bi-check-circle me-1"></i> 確定收單',
-    cancelButtonText: '取消',
-    confirmButtonColor: '#0d6efd',
-    // 驗證必填選項
+    confirmButtonText: '儲存',
     preConfirm: () => {
-      const replyOpt = document.getElementById('swal-reply-opt').value;
-      if (!replyOpt) {
-        Swal.showValidationMessage('請務必選擇後續處置方式！');
-        return false;
-      }
       return {
-        replyOption: replyOpt,
-        note: document.getElementById('swal-note').value.trim()
+        ward: document.getElementById('swal-ward').value.trim(),
+        chartNo: document.getElementById('swal-chart').value.trim()
       }
     }
   });
 
-  if (isConfirmed && formValues) {
-    Swal.fire({ title: '寫入資料庫中...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+  if (formValues) {
+    Swal.fire({ title: '儲存中...', didOpen: () => Swal.showLoading() });
+    const payload = { action: 'updateInfo', signId: signId, ward: formValues.ward, chartNo: formValues.chartNo };
+    const res = await callGAS('editDocRecord', { payload: payload });
+    if (res.success) refreshPharmaDocs();
+    else Swal.fire('失敗', res.message, 'error');
+  }
+}
 
-    const payload = {
-      signId: signId,
-      pharmaId: currentPharmaId,
-      pharmaName: currentPharmaName,
-      replyOption: formValues.replyOption,
-      note: formValues.note
-    };
+// === 藥師撤銷收單 ===
+async function revertDoc(signId) {
+  const confirm = await Swal.fire({
+    title: '確定要撤銷嗎？',
+    text: "撤銷後，該筆單據會回到左側的「待收單」列表，且傳送人員的紀錄也會恢復未結案狀態。",
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#dc3545',
+    confirmButtonText: '是的，撤銷'
+  });
 
-    const result = await callGAS('receiveDocTransfer', { payload: payload });
+  if (confirm.isConfirmed) {
+    Swal.fire({ title: '撤銷中...', didOpen: () => Swal.showLoading() });
+    const payload = { action: 'revertReceive', signId: signId };
+    const res = await callGAS('editDocRecord', { payload: payload });
+    if (res.success) refreshPharmaDocs();
+  }
+}
 
-    if (result.success) {
-      Swal.fire({ icon: 'success', title: '收單成功！', timer: 1500, showConfirmButton: false });
-      refreshPharmaDocs(); // 重新整理列表
-    } else {
-      Swal.fire('失敗', result.message, 'error');
+// === 確認收單 (保留下拉選單) ===
+async function receiveDoc(signId) {
+  let optionsHtml = replyOptionsData.map(opt => `<option value="${opt}">${opt}</option>`).join('');
+  const { value: formValues, isConfirmed } = await Swal.fire({
+    title: '處理收件單',
+    html: `
+      <div class="mb-3 text-start">
+        <label class="form-label fw-bold">處置方式 <span class="text-danger">*</span></label>
+        <select id="swal-reply-opt" class="form-select">${optionsHtml}</select>
+      </div>
+      <div class="text-start">
+        <label class="form-label fw-bold">備註 (選填)</label>
+        <input id="swal-note" class="form-control" placeholder="給傳送的備註...">
+      </div>
+    `,
+    showCancelButton: true,
+    confirmButtonText: '確定',
+    preConfirm: () => {
+      const replyOpt = document.getElementById('swal-reply-opt').value;
+      if (!replyOpt) { Swal.showValidationMessage('請選擇處置方式！'); return false; }
+      return { replyOption: replyOpt, note: document.getElementById('swal-note').value.trim() }
     }
+  });
+
+  if (isConfirmed && formValues) {
+    Swal.fire({ title: '處理中...', didOpen: () => Swal.showLoading() });
+    const payload = { signId, pharmaId: currentPharmaId, pharmaName: currentPharmaName, replyOption: formValues.replyOption, note: formValues.note };
+    const res = await callGAS('receiveDocTransfer', { payload: payload });
+    if (res.success) refreshPharmaDocs();
   }
 }
 
 document.getElementById('btnRefreshPending').addEventListener('click', refreshPharmaDocs);
-
-function logout() {
-  sessionStorage.removeItem('pharmaId');
-  sessionStorage.removeItem('pharmaName');
-  window.location.href = 'index.html';
-}
+function logout() { sessionStorage.removeItem('pharmaId'); sessionStorage.removeItem('pharmaName'); window.location.href = 'index.html'; }
