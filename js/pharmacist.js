@@ -47,12 +47,12 @@ async function refreshPharmaDocs() {
               <small class="text-danger fw-bold">${item.sendTime} 送達</small>
             </div>
             <div class="fs-6 mb-2">
-              <span class="me-3">病房: <strong class="text-primary">${item.ward || '無'}</strong></span>
-              <span>病歷號: <strong>${item.chartNo || '無'}</strong></span>
+              <!-- ★ 使用後端傳來的動態欄位 -->
+              ${item.detailsHtml}
               <!-- 編輯按鈕 -->
-              <button class="btn btn-sm btn-link py-0 px-1 text-secondary" onclick="editDocInfo('${item.signId}', '${item.ward}', '${item.chartNo}')"><i class="bi bi-pencil-square"></i> 修改</button>
+              <button class="btn btn-sm btn-link py-0 px-1 text-secondary ms-1" onclick="editDocInfo('${item.signId}', '${item.ward}', '${item.chartNo}')"><i class="bi bi-pencil-square"></i> 修改</button>
             </div>
-            ${item.sendNote ? `<div class="text-danger small mb-2 bg-light p-1 rounded">備註: ${item.sendNote}</div>` : ''}
+            ${item.sendNote ? `<div class="text-danger small mb-2 bg-light p-1 rounded"><i class="bi bi-exclamation-triangle-fill me-1"></i>送件備註: ${item.sendNote}</div>` : ''}
             <div class="d-flex justify-content-between align-items-center mt-1">
               <small class="text-muted">傳送: ${item.sender}</small>
               <button class="btn btn-warning btn-sm fw-bold" onclick="receiveDoc('${item.signId}')">進行收單</button>
@@ -63,7 +63,7 @@ async function refreshPharmaDocs() {
       });
     }
 
-// === 右側：已收單 (加入撤銷按鈕) ===
+    // === 右側：已收單 (加入雙向備註與動態欄位) ===
     const completedData = result.data.completed;
     if (completedData.length === 0) {
       completedBox.innerHTML = '<div class="text-muted text-center py-4">無收單紀錄</div>';
@@ -71,15 +71,14 @@ async function refreshPharmaDocs() {
       completedBox.innerHTML = '';
       completedData.forEach(item => {
         
-        // ★ 判斷目前最終狀態來決定卡片與標籤顏色
-        let badgeClass = 'bg-danger'; // 預設紅色 (掛牌/退件，提醒藥師還沒人來拿)
+        let badgeClass = 'bg-danger'; 
         let borderClass = 'border-primary';
         
         if (item.replyOption === '收下不歸還') {
-          badgeClass = 'bg-success'; // 綠色 (系統結案)
+          badgeClass = 'bg-success'; 
           borderClass = 'border-success';
         } else if (item.replyOption === '已領回') {
-          badgeClass = 'bg-secondary'; // 灰色 (傳送已拿走，圓滿結束)
+          badgeClass = 'bg-secondary'; 
           borderClass = 'border-secondary';
         }
 
@@ -88,12 +87,22 @@ async function refreshPharmaDocs() {
         card.innerHTML = `
           <div class="card-body p-2">
             <div class="d-flex justify-content-between mb-1">
-              <strong class="text-dark fs-6">${item.type}</strong>
+              <strong class="text-primary fs-6">${item.type}</strong>
               <small class="text-muted">${item.receiveTime} 收</small>
             </div>
+            
+            <!-- ★ 動態副標題顯示所有欄位 -->
             <div class="small text-secondary mb-1">
-              病房: ${item.ward || '無'} | 病歷號: ${item.chartNo || '無'}
+              ${item.detailsHtml}
             </div>
+            
+            <!-- ★ 同時顯示雙方的備註區塊 (如果有填寫的話) -->
+            ${(item.sendNote || item.receiveNote) ? `
+            <div class="bg-light p-2 my-2 rounded border small">
+              ${item.sendNote ? `<div class="text-danger mb-1"><i class="bi bi-person-walking me-1"></i>傳送備註: <span class="fw-bold">${item.sendNote}</span></div>` : ''}
+              ${item.receiveNote ? `<div class="text-primary"><i class="bi bi-capsule me-1"></i>藥師備註: <span class="fw-bold">${item.receiveNote}</span></div>` : ''}
+            </div>` : ''}
+
             <div class="d-flex justify-content-between align-items-center mt-2">
               <div>
                 <span class="badge ${badgeClass}">${item.replyOption}</span>
