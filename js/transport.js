@@ -44,11 +44,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const barcodeValue = barcodeInput.value.trim();
       if (!barcodeValue) return;
 
-      // === 條碼解析與防呆邏輯 ===
       const parts = barcodeValue.split(';');
-      
-      // 驗證 1: 結構必須夠長 (至少要有 5 個分號分隔出的段落)
-      // 驗證 2: 領藥號 (parts[2]) 必須是 8 開頭
       if (parts.length < 5 || !parts[2] || !parts[2].startsWith('8')) {
         Swal.fire({
           icon: 'error',
@@ -58,47 +54,104 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         barcodeInput.value = '';
         barcodeInput.focus();
-        return; // 終止執行，不寫入
+        return;
       }
 
-      // 提取資料
-      const chartNo = parts[0]; // 病歷號
-      const dispenseNo = parts[2]; // 領藥號
-      const rawDateStr = parts[4]; // 處方日期 (例如 I202602050917239608592)
-      
-      // 使用正規表達式抓取英文字母後面的 8 個數字
+      const chartNo = parts[0]; 
+      const dispenseNo = parts[2]; 
+      const rawDateStr = parts[4]; 
       const dateMatch = rawDateStr.match(/[A-Za-z](\d{8})/);
       const rxDate = dateMatch ? dateMatch[1] : '';
 
-      // 準備 payload，加入新解析的欄位
       const payload = {
-        date: document.getElementById('medDate').value, // 今日日期
+        date: document.getElementById('medDate').value,
         barcode: barcodeValue,
         type: '傳送',
         staffId: transId,
         staffName: transName,
         chartNo: chartNo,
         dispenseNo: dispenseNo,
-        rxDate: rxDate
+        rxDate: rxDate,
+        overwrite: false // 預設不是覆蓋模式
       };
 
-      // === 前端 UI 繪製 ===
+      // 先在畫面上畫出黃色的「處理中」卡片
       const cardId = 'card_' + Date.now();
-      // 我們把領藥號當作卡片的醒目標題傳進去 (稍微修改 addCardToUI 的顯示)
       addCardToUI(payload, cardId, true); 
       
       barcodeInput.value = '';
       barcodeInput.focus();
 
-      // 發送寫入請求
-      const result = await callGAS('logDischargeMeds', { payload: payload });
+      // 發送第一次寫入請求
+      let result = await callGAS('logDischargeMeds', { payload: payload });
       
+      // ★ 判斷是否遇到重複紀錄
+      if (result.isDuplicate) {
+        // 先把剛剛畫在畫面上的黃色卡片抽掉，並扣回總筆數
+        const pendingCard = document.getElementById(cardId);
+        if (pendingCard) pendingCard.remove();
+        scanCount--;
+        totalCountSpan.textContent = scanCount;
+
+        const ext = result.existingRecord;
+        
+        // 組裝與側邊清單長得一模一樣的 HTML 卡片
+        const alertHtml = `
+          <div class="text-danger fw-bold fs-4 mb-3">此處方日期的領藥號已被簽收過！</div>
+          <div class="card shadow-sm border-danger border-2 text-start mb-3">
+            <div class="card-body py-3 px-4 bg-light">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <h3 class="m-0 text-danger fw-bold">領藥號：${ext.dispNo}</h3>
+                <span class="text-muted fs-4">${ext.time}</span>
+              </div>
+              <div class="mb-2 fs-5 text-secondary">
+                病歷號：<span class="fw-bold text-dark">${ext.chartNo}</span> | 處方日期：${ext.rxDate}
+              </div>
+              <div class="fs-5 text-secondary border-top pt-2">
+                <span class="badge bg-danger me-2 fs-6">${ext.type}</span>
+                已被 <span class="fw-bold text-danger">${ext.staffName}</span> (${ext.staffId}) 簽收
+              </div>
+            </div>
+          </div>
+          <div class="fs-5 text-dark mt-2">
+            您確定要用 <span class="text-success fw-bold">${transName}</span> 的身分<br>覆蓋這筆紀錄嗎？
+          </div>
+        `;
+
+        // 彈出確認視窗
+        const confirmOverwrite = await Swal.fire({
+          html: alertHtml,
+          icon: 'warning',
+          showCancelButton: true,
+          confirmButtonText: '是，確認覆蓋',
+          cancelButtonText: '否，取消',
+          confirmButtonColor: '#198754',
+          cancelButtonColor: '#6c757d',
+          width: '600px' // 讓卡片不要被擠壓
+        });
+
+        // 如果選擇覆蓋
+        if (confirmOverwrite.isConfirmed) {
+          payload.overwrite = true; // 開啟覆蓋模式
+          addCardToUI(payload, cardId, true); // 再次畫出黃色卡片
+          result = await callGAS('logDischargeMeds', { payload: payload }); // 發送第二次請求
+        } else {
+          // 如果選擇取消，就當作沒事發生，游標回到輸入框
+          barcodeInput.focus();
+          return;
+        }
+      }
+
+      // 最終處理結果 (成功新增 或 成功覆蓋)
       if (result.success) {
-        document.getElementById(cardId).classList.replace('border-warning', 'border-success');
-      } else {
+        const targetCard = document.getElementById(cardId);
+        if(targetCard) targetCard.classList.replace('border-warning', 'border-success');
+      } else if (!result.isDuplicate) { // 避免重複報錯
         const errorCard = document.getElementById(cardId);
-        errorCard.classList.replace('border-warning', 'border-danger');
-        errorCard.querySelector('.card-body').innerHTML += `<div class="text-danger mt-2 fs-5 fw-bold">寫入失敗，請重試</div>`;
+        if(errorCard){
+          errorCard.classList.replace('border-warning', 'border-danger');
+          errorCard.querySelector('.card-body').innerHTML += `<div class="text-danger mt-2 fs-5 fw-bold">寫入失敗，請重試</div>`;
+        }
       }
       barcodeInput.focus();
     }
