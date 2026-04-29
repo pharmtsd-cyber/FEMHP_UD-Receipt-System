@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>傳送登入 - 住院藥局收發系統</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-  <!-- 加入 Bootstrap Icons -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
@@ -15,56 +14,37 @@
       <div class="col-md-5">
         <div class="card shadow border-success">
           <div class="card-body p-5">
-            <!-- 標題與隱藏圖示區 -->
             <div class="text-center mb-4">
-              <!-- 加入隱藏登入的 ID -->
-              <i class="bi bi-person-walking display-1 text-success mb-3 d-block" id="secretIcon" style="cursor: default;"></i>
+              <i class="bi bi-person-walking display-1 text-success mb-3 d-block"></i>
               <h2 class="text-success fw-bold" style="font-size: 2.5rem;">傳送人員登入</h2>
               <p class="text-muted fs-5">請輸入您的員工編號</p>
             </div>
             
-            <!-- 登入表單 -->
             <form id="tLoginForm">
               <div class="mb-4">
                 <label class="form-label fw-bold fs-4">員工編號</label>
-                <!-- 特別放大的輸入框 -->
                 <input type="text" class="form-control" style="font-size: 2rem; padding: 15px;" id="tLoginId" required autofocus>
               </div>
               <button type="submit" class="btn btn-success w-100 fw-bold" style="font-size: 1.8rem; padding: 12px;">登 入</button>
+              
+              <!-- ★ 不起眼的非名單人員登入連結 -->
+              <div class="text-end mt-2">
+                <span id="guestLoginBtn" class="text-muted" style="cursor: pointer; font-size: 0.85rem; text-decoration: underline;">非名單人員登入</span>
+              </div>
             </form>
             
-            <!-- 返回首頁 -->
             <div class="text-center mt-4">
               <a href="index.html" class="text-decoration-none text-secondary fs-5">← 返回首頁</a>
             </div>
-          </div> <!-- 結束 card-body -->
-        </div> <!-- 結束 card -->
+          </div> 
+        </div> 
       </div>
     </div>
   </div>
 
   <script src="js/config.js"></script>
   <script>
-    // 隱藏版登入：雙擊圖示觸發
-    document.getElementById('secretIcon').addEventListener('dblclick', async () => {
-      const { value: secretId } = await Swal.fire({
-        title: '🤫 特殊權限登入',
-        input: 'text',
-        inputPlaceholder: '請輸入您的員工編號',
-        showCancelButton: true,
-        confirmButtonText: '強制登入',
-        cancelButtonText: '取消'
-      });
-      
-      if (secretId) {
-        // 繞過後端驗證，直接強制寫入 session
-        sessionStorage.setItem('transId', secretId);
-        sessionStorage.setItem('transName', '特殊登入人員');
-        window.location.href = 'transport_dashboard.html';
-      }
-    });
-
-    // 一般登入：送出表單
+    // === 一般登入邏輯 ===
     document.getElementById('tLoginForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       const id = document.getElementById('tLoginId').value.trim();
@@ -74,7 +54,6 @@
       const result = await callGAS('transportLogin', { staffId: id });
 
       if (result.success) {
-        // 存入 sessionStorage
         sessionStorage.setItem('transId', result.staffId);
         sessionStorage.setItem('transName', result.name);
         
@@ -88,6 +67,26 @@
         });
       } else {
         Swal.fire('登入失敗', result.message, 'error');
+      }
+    });
+
+    // === 不起眼的「非名單人員登入」邏輯 ===
+    document.getElementById('guestLoginBtn').addEventListener('click', async () => {
+      const { value: secretId } = await Swal.fire({
+        title: '非名單人員登入',
+        input: 'text',
+        inputPlaceholder: '請輸入您的員工編號',
+        showCancelButton: true,
+        confirmButtonText: '進入系統',
+        cancelButtonText: '取消',
+        confirmButtonColor: '#198754'
+      });
+      
+      if (secretId && secretId.trim() !== '') {
+        // 直接存入 sessionStorage 並跳轉，不經過 GAS 驗證
+        sessionStorage.setItem('transId', secretId.trim());
+        sessionStorage.setItem('transName', '非名單人員');
+        window.location.href = 'transport_dashboard.html';
       }
     });
   </script>
