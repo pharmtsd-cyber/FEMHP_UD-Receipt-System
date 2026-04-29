@@ -11,6 +11,16 @@
     #barcodeInput:focus { border-color: #198754; box-shadow: 0 0 0 0.5rem rgba(25,135,84,0.25); background-color: #f8f9fa; }
     /* 放大的卡片文字 */
     .huge-text { font-size: 2.2rem !important; }
+
+    /* 讓目前作用中的頁籤變成明顯的淺綠色底 */
+    .nav-tabs .nav-link.active {
+      background-color: #d1e7dd !important; /* Bootstrap 淺綠色 */
+      border-color: #198754 #198754 #d1e7dd !important;
+      color: #0f5132 !important;
+    }
+    .nav-tabs .nav-link {
+      background-color: #f8f9fa; /* 未選取的底色 */
+    }
   </style>
 </head>
 <body class="bg-light">
