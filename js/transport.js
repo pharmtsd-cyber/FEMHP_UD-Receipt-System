@@ -246,3 +246,34 @@ document.getElementById('btnRefreshDoc').addEventListener('click', refreshDocPro
 
 // 當切換到「送文件」分頁時，自動刷一次進度
 document.getElementById('doc-tab').addEventListener('shown.bs.tab', refreshDocProgress);
+
+// === 修改後的載入邏輯 ===
+  async function loadDocConfig() {
+    const select = document.getElementById('docTypeSelect');
+    // 清空選項並顯示讀取中
+    select.innerHTML = '<option value="">資料載入中...</option>';
+
+    try {
+      const result = await callGAS('getConfigData', {}); // 呼叫 GAS
+      
+      if (result && result.length > 0) {
+        docConfigs = result;
+        select.innerHTML = '<option value="">請選擇類型...</option>';
+        docConfigs.forEach(config => {
+          const opt = document.createElement('option');
+          opt.value = config['送件類型名稱'];
+          opt.textContent = config['送件類型名稱'];
+          select.appendChild(opt);
+        });
+        console.log("送件類型載入成功:", docConfigs);
+      } else {
+        select.innerHTML = '<option value="">無法取得類型(清單為空)</option>';
+      }
+    } catch (err) {
+      console.error("載入設定檔失敗:", err);
+      select.innerHTML = '<option value="">伺服器連線失敗</option>';
+    }
+  }
+
+  // 確保在頁面載入時執行
+  loadDocConfig();
