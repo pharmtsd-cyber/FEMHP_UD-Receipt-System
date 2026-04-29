@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>住院藥局收發系統 - 首頁</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- ★ 引入 Bootstrap Icons -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
   <style>
     .portal-card { transition: transform 0.2s; cursor: pointer; }
     .portal-card:hover { transform: translateY(-5px); box-shadow: 0 .5rem 1rem rgba(0,0,0,.15)!important; }
@@ -12,14 +14,15 @@
 </head>
 <body class="bg-light d-flex align-items-center" style="min-height: 100vh;">
   <div class="container text-center">
-    <h1 class="mb-5 text-primary fw-bold">🏥 住院藥局收發系統</h1>
+    <h1 class="mb-5 text-primary fw-bold"><i class="bi bi-hospital me-2"></i>住院藥局收發系統</h1>
     
     <div class="row justify-content-center gap-4">
       <!-- 傳送人員入口 -->
       <div class="col-md-4">
         <div class="card shadow-sm portal-card h-100 py-4" onclick="location.href='transport.html'">
           <div class="card-body">
-            <h1 class="display-1 mb-3">🏃‍♂️</h1>
+            <!-- ★ 改用 Icon -->
+            <i class="bi bi-person-walking display-1 text-success mb-3 d-block"></i>
             <h3 class="card-title text-success fw-bold">傳送人員專區</h3>
             <p class="text-muted mt-3">免登入，輸入編號即可進行<br>出院帶藥簽收與文件送件。</p>
           </div>
@@ -30,8 +33,9 @@
       <div class="col-md-4">
         <div class="card shadow-sm portal-card h-100 py-4" onclick="location.href='pharmacist_login.html'">
           <div class="card-body">
-            <h1 class="display-1 mb-3">🧑‍⚕️</h1>
-            <h3 class="card-title text-primary fw-bold">藥師登入</h3>
+            <!-- ★ 改用 Icon -->
+            <i class="bi bi-capsule display-1 text-primary mb-3 d-block"></i>
+            <h3 class="card-title text-primary fw-bold">藥師系統登入</h3>
             <p class="text-muted mt-3">需輸入帳號密碼，<br>進行氣送作業、文件收單與查詢。</p>
           </div>
         </div>
