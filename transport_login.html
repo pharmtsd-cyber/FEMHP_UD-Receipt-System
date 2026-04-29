@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>傳送登入 - 住院藥局收發系統</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- 加入 Bootstrap Icons -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
 <body class="bg-light d-flex align-items-center" style="min-height: 100vh;">
@@ -13,13 +15,15 @@
       <div class="col-md-5">
         <div class="card shadow border-success">
           <div class="card-body p-5">
+            <!-- 標題與隱藏圖示區 -->
             <div class="text-center mb-4">
+              <!-- 加入隱藏登入的 ID -->
               <i class="bi bi-person-walking display-1 text-success mb-3 d-block" id="secretIcon" style="cursor: default;"></i>
-                <h2 class="text-success fw-bold" style="font-size: 2.5rem;">傳送人員登入</h2>
-                <p class="text-muted fs-5">請輸入您的員工編號</p>
-              </div>
+              <h2 class="text-success fw-bold" style="font-size: 2.5rem;">傳送人員登入</h2>
+              <p class="text-muted fs-5">請輸入您的員工編號</p>
             </div>
             
+            <!-- 登入表單 -->
             <form id="tLoginForm">
               <div class="mb-4">
                 <label class="form-label fw-bold fs-4">員工編號</label>
@@ -29,11 +33,12 @@
               <button type="submit" class="btn btn-success w-100 fw-bold" style="font-size: 1.8rem; padding: 12px;">登 入</button>
             </form>
             
+            <!-- 返回首頁 -->
             <div class="text-center mt-4">
               <a href="index.html" class="text-decoration-none text-secondary fs-5">← 返回首頁</a>
             </div>
-          </div>
-        </div>
+          </div> <!-- 結束 card-body -->
+        </div> <!-- 結束 card -->
       </div>
     </div>
   </div>
@@ -41,23 +46,25 @@
   <script src="js/config.js"></script>
   <script>
     // 隱藏版登入：雙擊圖示觸發
-  document.getElementById('secretIcon').addEventListener('dblclick', async () => {
-    const { value: secretId } = await Swal.fire({
-      title: '🤫 特殊權限登入',
-      input: 'text',
-      inputPlaceholder: '請輸入您的員工編號',
-      showCancelButton: true,
-      confirmButtonText: '強制登入',
-      cancelButtonText: '取消'
+    document.getElementById('secretIcon').addEventListener('dblclick', async () => {
+      const { value: secretId } = await Swal.fire({
+        title: '🤫 特殊權限登入',
+        input: 'text',
+        inputPlaceholder: '請輸入您的員工編號',
+        showCancelButton: true,
+        confirmButtonText: '強制登入',
+        cancelButtonText: '取消'
+      });
+      
+      if (secretId) {
+        // 繞過後端驗證，直接強制寫入 session
+        sessionStorage.setItem('transId', secretId);
+        sessionStorage.setItem('transName', '特殊登入人員');
+        window.location.href = 'transport_dashboard.html';
+      }
     });
-    
-    if (secretId) {
-      // 繞過後端驗證，直接強制寫入 session
-      sessionStorage.setItem('transId', secretId);
-      sessionStorage.setItem('transName', '特殊登入人員');
-      window.location.href = 'transport_dashboard.html';
-    }
-  });
+
+    // 一般登入：送出表單
     document.getElementById('tLoginForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       const id = document.getElementById('tLoginId').value.trim();
