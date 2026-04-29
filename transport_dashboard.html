@@ -80,41 +80,38 @@
         </div>
       </div>
 
-<!-- 第二頁籤：送文件給藥局 -->
+<!-- 確保您的 html 裡有這段結構 -->
 <div class="tab-pane fade" id="doc" role="tabpanel">
   <div class="row">
     <!-- 左側：動態表單輸入區 -->
     <div class="col-lg-5 mb-4">
       <div class="card shadow border-primary h-100">
         <div class="card-body p-4">
-          <h3 class="text-primary fw-bold mb-4">📄 填寫送件資訊</h3>
+          <h3 class="text-primary fw-bold mb-4"><i class="bi bi-file-earmark-text me-2"></i>填寫送件資訊</h3>
           
           <form id="docForm">
-            <!-- 1. 選擇送件類型 (這是觸發動態欄位的開關) -->
+            <!-- 1. 選擇送件類型 -->
             <div class="mb-4">
-              <label class="form-label fw-bold fs-4">送件類型</label>
-              <select id="docTypeSelect" class="form-select form-select-lg border-primary" required>
+              <label class="form-label fw-bold fs-4">送件類型 <span class="text-danger">*</span></label>
+              <select id="docTypeSelect" class="form-select form-select-lg border-primary fs-4" required>
                 <option value="">請選擇類型...</option>
-                <!-- 由 JS 動態注入選項 -->
               </select>
             </div>
 
-            <hr>
-
-            <!-- 2. 動態欄位容器 (由 JS 根據 Config 產生) -->
-            <div id="dynamicFieldsContainer" class="fs-4">
-              <div class="text-muted text-center py-5">請先選擇送件類型</div>
+            <!-- 2. 動態欄位容器 -->
+            <div id="dynamicFieldsContainer" class="p-3 bg-light rounded mb-4 border">
+              <div class="text-muted text-center py-4 fs-5">請先選擇送件類型</div>
             </div>
-
-            <hr>
 
             <!-- 3. 固定備註欄位 -->
             <div class="mb-4">
-              <label class="form-label fw-bold fs-4">送件備註 (Note)</label>
-              <textarea id="docNote" class="form-control fs-4" rows="2" placeholder="如有特殊事項請註明..."></textarea>
+              <label class="form-label fw-bold fs-4">送件備註 (選填)</label>
+              <textarea id="docNote" class="form-control fs-4" rows="2" placeholder="如有特殊交辦事項請註明..."></textarea>
             </div>
 
-            <button type="submit" class="btn btn-primary w-100 fw-bold py-3 fs-3" id="btnSubmitDoc">確認送件</button>
+            <button type="submit" class="btn btn-primary w-100 fw-bold py-3 fs-3" id="btnSubmitDoc">
+              <i class="bi bi-send-fill me-2"></i>確認送出
+            </button>
           </form>
         </div>
       </div>
@@ -123,12 +120,14 @@
     <!-- 右側：今日送件進度紀錄 -->
     <div class="col-lg-7">
       <div class="card shadow h-100">
-        <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
-          <h4 class="m-0 text-primary fw-bold">📋 今日送件進度</h4>
-          <button class="btn btn-outline-secondary btn-sm" id="btnRefreshDoc">重整進度</button>
+        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center py-3">
+          <h4 class="m-0 fw-bold"><i class="bi bi-clock-history me-2"></i>今日送件進度追蹤</h4>
+          <button class="btn btn-light btn-sm fw-bold" id="btnRefreshDoc">
+            <i class="bi bi-arrow-clockwise me-1"></i>重整
+          </button>
         </div>
-        <div class="card-body" id="docRecordContainer" style="height: 650px; overflow-y: auto;">
-          <!-- 送件紀錄卡片將顯示在此 -->
+        <div class="card-body bg-light" id="docRecordContainer" style="height: 700px; overflow-y: auto;">
+          <!-- 紀錄卡片會出現在這 -->
         </div>
       </div>
     </div>
