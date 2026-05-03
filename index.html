@@ -5,42 +5,40 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>住院藥局收發系統 - 首頁</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link rel="stylesheet" href="theme.css">
-  <style>
-    .portal-card { transition: transform 0.2s; cursor: pointer; }
-    .portal-card:hover { transform: translateY(-5px); box-shadow: 0 .5rem 1rem rgba(0,0,0,.15)!important; }
-  </style>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+  <link rel="stylesheet" href="css/theme.css"> <!-- ★ 套用海軍綠主題 -->
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script> <!-- ★ 引入提示工具 -->
 </head>
-<body class="bg-light d-flex align-items-center" style="min-height: 100vh;">
+<body class="bg-light d-flex align-items-center" style="min-height: 100vh; position: relative;">
   <div class="container text-center">
     <h1 class="mb-5 text-primary fw-bold"><i class="bi bi-hospital me-2"></i>住院藥局收發系統</h1>
     
     <div class="row justify-content-center gap-3">
       
-      <!-- 第一個入口：傳送人員 -->
-      <div class="col-md-3">
+      <!-- 第一個入口：傳送人員 (改為 col-md-4 讓三個卡片完美等分) -->
+      <div class="col-md-3" style="width: 30%;">
         <div class="card shadow-sm portal-card h-100 py-4 border-success" onclick="location.href='transport_login.html'">
           <div class="card-body">
             <i class="bi bi-person-walking display-1 text-success mb-3 d-block"></i>
-            <h4 class="card-title text-success fw-bold">傳送人員專區</h4>
+            <h4 class="card-title text-success fw-bold">傳送人員大廳</h4>
             <p class="text-muted mt-3 fs-6">出院帶藥簽收<br>與文件送件</p>
           </div>
         </div>
       </div>
 
       <!-- 第二個入口：藥師 -->
-      <div class="col-md-3">
+      <div class="col-md-3" style="width: 30%;">
         <div class="card shadow-sm portal-card h-100 py-4 border-primary" onclick="location.href='pharmacist_login.html'">
           <div class="card-body">
             <i class="bi bi-capsule display-1 text-primary mb-3 d-block"></i>
-            <h4 class="card-title text-primary fw-bold">藥師系統登入</h4>
+            <h4 class="card-title text-primary fw-bold">藥師作業大廳</h4>
             <p class="text-muted mt-3 fs-6">氣送作業、<br>文件收單與管理</p>
           </div>
         </div>
       </div>
 
       <!-- 第三個入口：歷史查詢大廳 -->
-      <div class="col-md-3">
+      <div class="col-md-3" style="width: 30%;">
         <div class="card shadow-sm portal-card h-100 py-4 border-secondary" onclick="location.href='public_records.html'">
           <div class="card-body">
             <i class="bi bi-clock-history display-1 text-secondary mb-3 d-block"></i>
@@ -50,18 +48,40 @@
         </div>
       </div>
 
-      <!-- ★ 第四個入口：傳送主管管理專區 -->
-      <div class="col-md-3">
-        <div class="card shadow-sm portal-card h-100 py-4 border-danger" onclick="location.href='transport_admin.html'">
-          <div class="card-body">
-            <i class="bi bi-shield-lock display-1 text-danger mb-3 d-block"></i>
-            <h4 class="card-title text-danger fw-bold">主管管理專區</h4>
-            <p class="text-muted mt-3 fs-6">權限控管！<br>維護傳送人員名單</p>
-          </div>
-        </div>
-      </div>
-
     </div>
   </div>
+
+  <!-- ★ 秘密入口：右下角的半透明小鎖頭 -->
+  <div class="position-fixed bottom-0 end-0 p-3">
+    <i class="bi bi-shield-lock-fill text-secondary" style="cursor: pointer; font-size: 1.5rem; opacity: 0.15; transition: opacity 0.3s;" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='0.15'" onclick="promptAdminPassword()" title="管理員秘密通道"></i>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script>
+    // 點擊秘密小鎖頭，觸發共同密碼驗證
+    async function promptAdminPassword() {
+      const { value: pwd } = await Swal.fire({
+        title: '管理員秘密通道',
+        input: 'password',
+        inputPlaceholder: '請輸入共同密碼',
+        showCancelButton: true,
+        confirmButtonText: '驗證',
+        cancelButtonText: '取消',
+        confirmButtonColor: '#2C5343'
+      });
+
+      if (pwd) {
+        Swal.fire({ title: '驗證中...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+        const res = await callGAS('verifySharedPassword', { payload: { password: pwd } });
+        
+        if (res.success) {
+          Swal.close();
+          window.location.href = 'transport_admin.html'; // 密碼正確才跳轉
+        } else {
+          Swal.fire('拒絕存取', res.message, 'error');
+        }
+      }
+    }
+  </script>
 </body>
 </html>
