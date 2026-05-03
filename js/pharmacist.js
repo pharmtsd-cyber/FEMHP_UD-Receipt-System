@@ -404,3 +404,9 @@ document.addEventListener('DOMContentLoaded', () => {
     pCardContainer.insertBefore(card, pCardContainer.firstChild);
   }
 });
+
+// 當藥師點擊「文件收單作業」頁籤時，自動抓取最新資料
+const docReceiveTab = document.getElementById('doc-receive-tab');
+if(docReceiveTab) {
+  docReceiveTab.addEventListener('shown.bs.tab', refreshPharmaDocs);
+}
