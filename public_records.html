@@ -3,91 +3,100 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>今日收發總表 - 住院藥局收發系統</title>
+  <title>住院藥局收發紀錄查詢平台</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
   <style>
-    /* 讓目前作用中的頁籤有明顯底色 */
-    .nav-tabs .nav-link.active {
-      background-color: #e9ecef !important;
-      border-color: #dee2e6 #dee2e6 #e9ecef !important;
-      font-weight: bold;
-    }
+    .nav-tabs .nav-link.active { font-weight: bold; background-color: #e9ecef !important; }
+    .filter-box { background-color: #f8f9fa; border-radius: 8px; padding: 15px; margin-bottom: 20px; border: 1px solid #dee2e6; }
   </style>
 </head>
 <body class="bg-light">
 
   <nav class="navbar navbar-dark bg-secondary mb-4 shadow-sm px-3">
-    <div class="container-fluid">
-      <span class="navbar-brand mb-0 h1 fs-3"><i class="bi bi-clipboard-data me-2"></i>今日收發總表 (公開資訊)</span>
-      <a href="index.html" class="btn btn-outline-light">← 返回首頁</a>
+    <div class="container-fluid justify-content-center">
+      <span class="navbar-brand mb-0 h1 fs-3"><i class="bi bi-search me-2"></i>住院藥局收發紀錄查詢平台</span>
     </div>
   </nav>
 
   <div class="container-fluid px-4">
-    <div class="card shadow">
+    <div class="card shadow border-0">
       <div class="card-body p-4">
-        <h4 class="mb-4 text-center text-dark fw-bold" id="dateTitle">載入中...</h4>
         
-        <!-- 上方切換頁籤 (Tab) -->
+        <!-- 頂部：日期區間選擇區 -->
+        <div class="row justify-content-center mb-4 border-bottom pb-4 align-items-end">
+          <div class="col-md-3">
+            <label class="fw-bold fs-5 mb-2 text-primary">開始日期：</label>
+            <input type="date" id="startDate" class="form-control form-control-lg text-center fw-bold">
+          </div>
+          <div class="col-md-3">
+            <label class="fw-bold fs-5 mb-2 text-primary">結束日期：</label>
+            <input type="date" id="endDate" class="form-control form-control-lg text-center fw-bold">
+          </div>
+          <div class="col-md-2">
+            <button class="btn btn-primary btn-lg w-100 fw-bold" onclick="loadRecords()"><i class="bi bi-cloud-download me-2"></i>載入資料</button>
+          </div>
+        </div>
+
         <ul class="nav nav-tabs nav-fill mb-4 fs-4" id="recordTab" role="tablist">
           <li class="nav-item" role="presentation">
-            <button class="nav-link active text-success" id="med-tab" data-bs-toggle="tab" data-bs-target="#med" type="button" role="tab">📦 出院帶藥紀錄</button>
+            <button class="nav-link active text-success" id="med-tab" data-bs-toggle="tab" data-bs-target="#med" type="button">📦 出院帶藥 / 氣送紀錄</button>
           </li>
           <li class="nav-item" role="presentation">
-            <button class="nav-link text-primary" id="doc-tab" data-bs-toggle="tab" data-bs-target="#doc" type="button" role="tab">📄 文件收發紀錄</button>
+            <button class="nav-link text-primary" id="doc-tab" data-bs-toggle="tab" data-bs-target="#doc" type="button">📄 文件收發紀錄</button>
           </li>
         </ul>
 
-        <!-- 頁籤內容區 -->
         <div class="tab-content" id="recordTabContent">
           
-          <!-- 第一頁籤：出院帶藥 -->
+          <!-- 第一頁籤：帶藥區 -->
           <div class="tab-pane fade show active" id="med" role="tabpanel">
+            <!-- 帶藥區的搜尋器 -->
+            <div class="filter-box row g-3">
+              <div class="col-md-4">
+                <input type="text" id="filterMedDisp" class="form-control form-control-lg" placeholder="🔍 搜尋 領藥號 (可輸入片段)...">
+              </div>
+              <div class="col-md-4">
+                <input type="text" id="filterMedChart" class="form-control form-control-lg" placeholder="🔍 搜尋 病歷號...">
+              </div>
+            </div>
+
             <div class="table-responsive">
-              <table class="table table-hover table-striped align-middle fs-5">
+              <table class="table table-hover table-striped align-middle fs-5 border">
                 <thead class="table-success">
-                  <tr>
-                    <th>序號</th>
-                    <th>領藥號</th>
-                    <th>病歷號</th>
-                    <th>處方日期</th>
-                    <th>簽收人</th>
-                    <th>簽收時間</th>
-                  </tr>
+                  <tr><th>日期</th><th>領藥號</th><th>病歷號</th><th>處方日期</th><th>經手人員</th><th>時間</th></tr>
                 </thead>
-                <tbody id="medRecordsBody">
-                  <tr><td colspan="6" class="text-center text-muted py-4">資料載入中，請稍候...</td></tr>
-                </tbody>
+                <tbody id="medRecordsBody"></tbody>
               </table>
             </div>
           </div>
 
-          <!-- 第二頁籤：收發文件 (版面預留) -->
+          <!-- 第二頁籤：文件區 -->
           <div class="tab-pane fade" id="doc" role="tabpanel">
+            <!-- 文件區的搜尋器 -->
+            <div class="filter-box row g-3">
+              <div class="col-md-4">
+                <input type="text" id="filterDocChart" class="form-control form-control-lg" placeholder="🔍 搜尋 病歷號...">
+              </div>
+              <div class="col-md-4">
+                <input type="text" id="filterDocWard" class="form-control form-control-lg" placeholder="🔍 搜尋 病房床號...">
+              </div>
+              <div class="col-md-4">
+                <input type="text" id="filterDocDisp" class="form-control form-control-lg" placeholder="🔍 搜尋 其他資訊 (如:領藥號)...">
+              </div>
+            </div>
+
             <div class="table-responsive">
-              <table class="table table-hover table-striped align-middle fs-5">
+              <table class="table table-hover table-striped align-middle fs-5 border">
                 <thead class="table-primary">
-                  <tr>
-                    <th>狀態</th>
-                    <th>送件類型</th>
-                    <th>病房/床號</th>
-                    <th>病歷號</th>
-                    <th>送件人</th>
-                    <th>收單藥師</th>
-                  </tr>
+                  <tr><th>日期</th><th>目前狀態</th><th>文件類型</th><th>病房 / 病歷號 / 附加資訊</th><th>送件人</th><th>收單藥師 / 處置</th></tr>
                 </thead>
-                <tbody id="docRecordsBody">
-                  <tr><td colspan="6" class="text-center text-muted py-5">
-                    <i class="bi bi-tools fs-1 d-block mb-3"></i>
-                    文件收發系統模組開發中，敬請期待...
-                  </td></tr>
-                </tbody>
+                <tbody id="docRecordsBody"></tbody>
               </table>
             </div>
           </div>
 
-        </div> <!-- end tab-content -->
+        </div>
       </div>
     </div>
   </div>
@@ -95,34 +104,115 @@
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
   <script src="js/config.js"></script>
   <script>
-    document.addEventListener('DOMContentLoaded', async () => {
-      // 取得今天日期字串 (YYYY-MM-DD)
+    // 儲存從伺服器抓回來的原始資料，供前端即時篩選
+    let allMedsData = [];
+    let allDocsData = [];
+
+    document.addEventListener('DOMContentLoaded', () => {
+      // 預設日期為今天
       const today = new Date().toISOString().split('T')[0];
-      document.getElementById('dateTitle').textContent = `📅 查詢日期：${today}`;
-
-      // 呼叫 GAS 取得今日「出院帶藥」紀錄
-      const result = await callGAS('getDailyRecords', { date: today });
+      document.getElementById('startDate').value = today;
+      document.getElementById('endDate').value = today;
       
-      const tbody = document.getElementById('medRecordsBody');
-      tbody.innerHTML = ''; // 清空載入中提示
+      // 綁定輸入框過濾事件 (每打一個字就過濾一次)
+      document.getElementById('filterMedDisp').addEventListener('input', renderMeds);
+      document.getElementById('filterMedChart').addEventListener('input', renderMeds);
+      
+      document.getElementById('filterDocChart').addEventListener('input', renderDocs);
+      document.getElementById('filterDocWard').addEventListener('input', renderDocs);
+      document.getElementById('filterDocDisp').addEventListener('input', renderDocs);
 
-      if (result.success && result.data.length > 0) {
-        result.data.forEach((record, index) => {
-          const tr = document.createElement('tr');
-          tr.innerHTML = `
-            <td>${index + 1}</td>
-            <td class="text-success fw-bold">${record.dispNo}</td>
-            <td class="font-monospace">${record.chartNo}</td>
-            <td>${record.rxDate}</td>
-            <td>${record.staffName}</td>
-            <td class="text-muted">${record.time}</td>
-          `;
-          tbody.appendChild(tr);
-        });
-      } else {
-        tbody.innerHTML = `<tr><td colspan="6" class="text-center text-danger py-4">今日尚無出院帶藥簽收紀錄</td></tr>`;
-      }
+      loadRecords(); // 初始載入
     });
+
+    // 1. 向 GAS 要資料
+    async function loadRecords() {
+      const start = document.getElementById('startDate').value;
+      const end = document.getElementById('endDate').value;
+      if(!start || !end) return;
+
+      const medBody = document.getElementById('medRecordsBody');
+      const docBody = document.getElementById('docRecordsBody');
+      medBody.innerHTML = '<tr><td colspan="6" class="text-center py-5"><div class="spinner-border text-success"></div><p class="mt-2">資料讀取中...</p></td></tr>';
+      docBody.innerHTML = '<tr><td colspan="6" class="text-center py-5"><div class="spinner-border text-primary"></div><p class="mt-2">資料讀取中...</p></td></tr>';
+
+      const payload = { startDate: start, endDate: end };
+
+      // 同時抓取帶藥與文件資料
+      const [medRes, docRes] = await Promise.all([
+        callGAS('getDailyRecords', payload),
+        callGAS('getPublicDocRecords', payload)
+      ]);
+
+      allMedsData = medRes.success ? medRes.data : [];
+      allDocsData = docRes.success ? docRes.data : [];
+
+      renderMeds();
+      renderDocs();
+    }
+
+    // 2. 渲染出院帶藥表格 (含過濾邏輯)
+    function renderMeds() {
+      const dispFilter = document.getElementById('filterMedDisp').value.trim().toLowerCase();
+      const chartFilter = document.getElementById('filterMedChart').value.trim().toLowerCase();
+      
+      const filtered = allMedsData.filter(r => {
+        const matchDisp = r.dispNo.toLowerCase().includes(dispFilter);
+        const matchChart = r.chartNo.toLowerCase().includes(chartFilter);
+        return matchDisp && matchChart;
+      });
+
+      const tbody = document.getElementById('medRecordsBody');
+      if (filtered.length > 0) {
+        tbody.innerHTML = filtered.map(r => `<tr>
+          <td>${r.dateStr}</td>
+          <td class="text-success fw-bold">${r.dispNo}</td>
+          <td>${r.chartNo}</td>
+          <td>${r.rxDate}</td>
+          <td>${r.staffName}</td>
+          <td>${r.time}</td>
+        </tr>`).join('');
+      } else {
+        tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted py-4">查無符合條件的紀錄</td></tr>`;
+      }
+    }
+
+    // 3. 渲染文件收發表格 (含過濾邏輯)
+    function renderDocs() {
+      const chartFilter = document.getElementById('filterDocChart').value.trim().toLowerCase();
+      const wardFilter = document.getElementById('filterDocWard').value.trim().toLowerCase();
+      const dispFilter = document.getElementById('filterDocDisp').value.trim().toLowerCase();
+      
+      const filtered = allDocsData.filter(r => {
+        const matchChart = r.chartNo.toLowerCase().includes(chartFilter);
+        const matchWard = r.ward.toLowerCase().includes(wardFilter);
+        // 搜尋領藥號或其他備註，會從 rawSearchText 去比對
+        const matchDisp = r.rawSearchText.toLowerCase().includes(dispFilter);
+        return matchChart && matchWard && matchDisp;
+      });
+
+      const tbody = document.getElementById('docRecordsBody');
+      if (filtered.length > 0) {
+        tbody.innerHTML = filtered.map(r => `
+          <tr>
+            <td>${r.dateStr}</td>
+            <td>
+              <span class="badge ${r.status === '待藥師收單' ? 'bg-warning text-dark' : 'bg-secondary'} fs-6 d-block mb-1">${r.status}</span>
+              ${r.replyOption ? `<span class="badge bg-primary fs-6">${r.replyOption}</span>` : ''}
+            </td>
+            <td class="fw-bold">${r.type}</td>
+            <td>
+              <div class="mb-1">病房: <span class="text-primary fw-bold">${r.ward || '-'}</span> | 病歷號: <span class="fw-bold">${r.chartNo || '-'}</span></div>
+              <div class="small text-muted">${r.detailsHtml}</div>
+            </td>
+            <td>${r.sender}</td>
+            <td class="${r.pharmaName === '等待中' ? 'text-danger' : 'text-primary fw-bold'}">${r.pharmaName}</td>
+          </tr>
+        `).join('');
+      } else {
+        tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted py-4">查無符合條件的紀錄</td></tr>`;
+      }
+    }
   </script>
 </body>
 </html>
