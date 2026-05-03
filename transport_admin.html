@@ -44,6 +44,9 @@
           <span class="navbar-brand mb-0 h1 fs-3"><i class="bi bi-people-fill me-2"></i>傳送人員名單管理</span>
           <span class="text-white fs-5 ms-4">登入主管：<strong id="displayAdminName"></strong></span>
         </div>
+        <button class="btn btn-warning fw-bold me-3 shadow-sm" onclick="changeSharedPassword()">
+            <i class="bi bi-key-fill me-1"></i>變更共同密碼
+          </button>
         <button class="btn btn-outline-light fw-bold" onclick="logoutAdmin()">安全登出</button>
       </nav>
 
@@ -105,6 +108,30 @@
       }
     });
 
+// === 主管自行變更共同密碼 ===
+    async function changeSharedPassword() {
+      const { value: newPwd } = await Swal.fire({
+        title: '變更共同密碼',
+        input: 'text',
+        inputPlaceholder: '請輸入新的共同密碼',
+        showCancelButton: true,
+        confirmButtonText: '確認變更',
+        cancelButtonText: '取消',
+        confirmButtonColor: '#C19A6B'
+      });
+
+      if (newPwd && newPwd.trim() !== '') {
+        Toast.fire({ icon: 'info', title: '背景更新中...', timer: 3000 });
+        const res = await callGAS('updateSharedPassword', { payload: { newPassword: newPwd.trim() } });
+        
+        if (res.success) {
+          Toast.fire({ icon: 'success', title: '共同密碼已更新！' });
+        } else {
+          Swal.fire('失敗', res.message, 'error');
+        }
+      }
+    }
+    
     // === 載入名單 ===
     async function loadStaffList() {
       const tbody = document.getElementById('staffTableBody');
