@@ -1,5 +1,6 @@
 // js/transport.js
-
+// 在 transport.js 最上方加入這個共用提示設定：
+const Toast = Swal.mixin({ toast: true, position: 'top-end', showConfirmButton: false, timer: 2000, timerProgressBar: true });
 // ==========================================
 // 音效模組
 // ==========================================
@@ -257,13 +258,13 @@ if(document.getElementById('docTypeSelect')) {
 
     Swal.fire({ title: '傳送中...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
 
+// === 1. 文件送件給藥局 (修改 Submit 事件) ===
+    Toast.fire({ icon: 'info', title: '背景傳送中...', timer: 3000 }); // ★ 替換原本的轉圈圈
     const result = await callGAS('submitDocTransfer', { payload: payload });
-
     if (result.success) {
       playSuccessSound();
       Swal.fire({ icon: 'success', title: '送件成功！', html: `單號：<span class="text-primary fw-bold">${result.signId}</span>`, timer: 2000, showConfirmButton: false });
       document.getElementById('docForm').reset();
-      document.getElementById('dynamicFieldsContainer').innerHTML = '<div class="text-muted text-center py-5 fs-4">請先選擇送件類型</div>';
       refreshDocProgress();
     } else {
       playErrorSound();
@@ -349,17 +350,14 @@ async function acknowledgeReturn(signId) {
     confirmButtonText: '是的，已領回'
   });
 
+// === 2. 傳送人員點擊「確認領回」=== (修改這部分)
   if (confirm.isConfirmed) {
-    Swal.fire({ title: '歸檔中...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
-    const payload = {
-      signId: signId,
-      transId: sessionStorage.getItem('transId'),
-      transName: sessionStorage.getItem('transName')
-    };
+    Toast.fire({ icon: 'info', title: '背景歸檔中...', timer: 3000 }); // ★ 替換原本的轉圈圈
+    const payload = { signId: signId, transId: sessionStorage.getItem('transId'), transName: sessionStorage.getItem('transName') };
     const res = await callGAS('acknowledgeDocReturn', { payload: payload });
     if (res.success) {
       playSuccessSound();
-      Swal.fire({ icon: 'success', title: '已結案歸檔', timer: 1000, showConfirmButton: false }); // ★ 蓋掉轉圈圈
+      Toast.fire({ icon: 'success', title: '已結案歸檔' });
       refreshDocProgress(); 
     } else {
       playErrorSound();
