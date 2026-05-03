@@ -47,14 +47,16 @@ async function refreshPharmaDocs() {
               <small class="text-danger fw-bold">${item.sendTime} 送達</small>
             </div>
             <div class="fs-6 mb-2">
-              <!-- ★ 使用後端傳來的動態欄位 -->
               ${item.detailsHtml}
-              <!-- 編輯按鈕 -->
               <button class="btn btn-sm btn-link py-0 px-1 text-secondary ms-1" onclick="editDocInfo('${item.signId}', '${item.ward}', '${item.chartNo}')"><i class="bi bi-pencil-square"></i> 修改</button>
             </div>
             ${item.sendNote ? `<div class="text-danger small mb-2 bg-light p-1 rounded"><i class="bi bi-exclamation-triangle-fill me-1"></i>送件備註: ${item.sendNote}</div>` : ''}
-            <div class="d-flex justify-content-between align-items-center mt-1">
-              <small class="text-muted">傳送: ${item.sender}</small>
+            
+            <!-- ★ 左側卡片：經手人區塊 -->
+            <div class="d-flex justify-content-between align-items-center mt-2 border-top pt-2">
+              <div class="small text-muted">
+                <i class="bi bi-person-walking"></i> 送件人: <strong class="text-dark">${item.senderName}</strong>
+              </div>
               <button class="btn btn-warning btn-sm fw-bold" onclick="receiveDoc('${item.signId}')">進行收單</button>
             </div>
           </div>
@@ -63,7 +65,7 @@ async function refreshPharmaDocs() {
       });
     }
 
-    // === 右側：已收單 (加入雙向備註與動態欄位) ===
+    // === 右側：已收單 ===
     const completedData = result.data.completed;
     if (completedData.length === 0) {
       completedBox.innerHTML = '<div class="text-muted text-center py-4">無收單紀錄</div>';
@@ -91,23 +93,29 @@ async function refreshPharmaDocs() {
               <small class="text-muted">${item.receiveTime} 收</small>
             </div>
             
-            <!-- ★ 動態副標題顯示所有欄位 -->
             <div class="small text-secondary mb-1">
               ${item.detailsHtml}
             </div>
             
-            <!-- ★ 同時顯示雙方的備註區塊 (如果有填寫的話) -->
             ${(item.sendNote || item.receiveNote) ? `
             <div class="bg-light p-2 my-2 rounded border small">
               ${item.sendNote ? `<div class="text-danger mb-1"><i class="bi bi-person-walking me-1"></i>傳送備註: <span class="fw-bold">${item.sendNote}</span></div>` : ''}
               ${item.receiveNote ? `<div class="text-primary"><i class="bi bi-capsule me-1"></i>藥師備註: <span class="fw-bold">${item.receiveNote}</span></div>` : ''}
             </div>` : ''}
 
-            <div class="d-flex justify-content-between align-items-center mt-2">
-              <div>
-                <span class="badge ${badgeClass}">${item.replyOption}</span>
+            <!-- ★ 右側卡片：所有經手人清單 -->
+            <div class="d-flex justify-content-between align-items-end mt-2 border-top pt-2">
+              <div class="small text-muted">
+                <div class="mb-1"><i class="bi bi-person-walking me-1"></i>送件人: <strong class="text-dark">${item.senderName}</strong></div>
+                <div class="mb-1"><i class="bi bi-capsule me-1"></i>收單人: <strong class="text-primary">${item.pharmaName}</strong></div>
+                ${item.returnerName && item.returnerName !== '系統結案' && item.replyOption === '已領回' 
+                  ? `<div><i class="bi bi-check2-circle me-1"></i>領回人: <strong class="text-success">${item.returnerName}</strong></div>` 
+                  : ''}
               </div>
-              <button class="btn btn-outline-danger btn-sm py-0" onclick="revertDoc('${item.signId}')">撤銷</button>
+              <div class="text-end">
+                <span class="badge ${badgeClass} mb-2 d-block fs-6">${item.replyOption}</span>
+                <button class="btn btn-outline-danger btn-sm py-0 w-100" onclick="revertDoc('${item.signId}')">撤銷</button>
+              </div>
             </div>
           </div>
         `;
