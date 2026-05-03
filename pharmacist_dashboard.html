@@ -48,45 +48,29 @@
     <!-- 第一頁籤：氣送作業 -->
       <div class="tab-pane fade" id="pneumatic" role="tabpanel">
         <div class="row">
-          <!-- 左側：條碼輸入與資訊 -->
+          <!-- 左側：超大刷條碼區 (完美複製傳送端) -->
           <div class="col-lg-5 mb-4">
-            <div class="card shadow border-primary h-100">
-              <div class="card-body p-4 text-center">
-                <h3 class="text-primary fw-bold mb-4"><i class="bi bi-upc-scan me-2"></i>氣送藥袋掃描區</h3>
+            <div class="card shadow border-success h-100">
+              <div class="card-body text-center p-5">
+                <input type="hidden" id="pneumaticDate">
+                <h3 class="text-success fw-bold mb-4">請將游標點擊下方框格並刷入條碼</h3>
                 
-                <div class="mb-4 text-start">
-                  <label class="form-label fw-bold fs-5">作業日期</label>
-                  <input type="date" id="pneumaticDate" class="form-control form-control-lg bg-light text-primary fw-bold" readonly>
-                </div>
+                <input type="text" id="pneumaticBarcodeInput" class="form-control text-center huge-text py-4 border-success" placeholder="請刷入藥袋條碼..." autofocus>
                 
-                <div class="mb-4 text-start">
-                  <label class="form-label fw-bold fs-5">請刷入藥袋條碼 <span class="text-danger">*</span></label>
-                  <input type="text" id="pneumaticBarcodeInput" class="form-control form-control-lg border-primary shadow-sm fs-4" placeholder="請將游標停留在此刷條碼..." autocomplete="off">
-                </div>
-                
-                <div class="mt-5 p-3 bg-light rounded border border-primary">
-                  <h4 class="text-secondary fw-bold m-0">
-                    本日氣送不重複總筆數：<span id="pneumaticTotalCount" class="text-primary display-4 fw-bold ms-2 align-middle">0</span>
-                  </h4>
-                </div>
+                <p class="form-text mt-4 fs-4">💡 刷入條碼後系統將自動送出<br>游標會自動保持在框內，可連續刷入！</p>
               </div>
             </div>
           </div>
 
-          <!-- 右側：掃描結果清單 -->
+          <!-- 右側：已完成清單區 (完美複製傳送端) -->
           <div class="col-lg-7">
             <div class="card shadow h-100">
-              <div class="card-header bg-primary text-white py-3">
-                <h4 class="m-0 fw-bold"><i class="bi bi-list-check me-2"></i>氣送作業簽收清單</h4>
+              <div class="card-header bg-white d-flex justify-content-between align-items-center py-3">
+                <h4 class="m-0 text-success fw-bold">✅ 今日氣送作業清單</h4>
+                <span class="badge bg-success fs-4">總筆數: <span id="pneumaticTotalCount">0</span></span>
               </div>
-              <div class="card-body bg-light" id="pneumaticCardContainer" style="height: 650px; overflow-y: auto;">
-                <!-- 空白狀態提示 -->
-                <div id="pneumaticEmptyState" class="text-muted text-center py-5">
-                  <i class="bi bi-rocket-takeoff display-1 mb-3 d-block text-secondary opacity-50"></i>
-                  <p class="fs-4 fw-bold">尚未刷入任何氣送藥袋</p>
-                  <p class="fs-5">請在左側刷入 8 開頭之領藥號條碼</p>
-                </div>
-                <!-- 掃描後的卡片將會動態新增在這裡 -->
+              <div class="card-body" id="pneumaticCardContainer" style="height: 600px; overflow-y: auto;">
+                <div class="text-muted text-center mt-5 fs-4" id="pneumaticEmptyState">目前尚無紀錄</div>
               </div>
             </div>
           </div>
