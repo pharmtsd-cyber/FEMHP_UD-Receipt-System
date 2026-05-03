@@ -58,7 +58,7 @@
             <div class="table-responsive">
               <table class="table table-hover align-middle fs-5 border">
                 <thead class="table-success">
-                  <tr><th>日期</th><th>領藥號</th><th>病歷號</th><th>總筆數</th><th>操作</th></tr>
+                  <tr><th>日期</th><th>領藥號</th><th>病歷號</th><th>最新進度 (人員與時間)</th><th>總筆數</th><th>操作</th></tr>
                 </thead>
                 <tbody id="medRecordsBody"></tbody>
               </table>
@@ -174,6 +174,7 @@
       }
     }
 
+// 2. 渲染出院帶藥表格 (主列直顯最新進度、分組、排序、折疊)
     function renderMeds() {
       const dispFilter = document.getElementById('filterMedDisp').value.trim().toLowerCase();
       const chartFilter = document.getElementById('filterMedChart').value.trim().toLowerCase();
@@ -186,7 +187,8 @@
 
       const tbody = document.getElementById('medRecordsBody');
       if (filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="5" class="text-center text-muted py-4">查無符合條件的紀錄</td></tr>`;
+        // ★ 欄位變成 6 個，所以 colspan 改為 6
+        tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted py-4">查無符合條件的紀錄</td></tr>`;
         return;
       }
 
@@ -207,11 +209,20 @@
       sortedDispNos.forEach((dispNo, index) => {
         const group = groupedData[dispNo];
         const collapseId = `collapseMed_${index}`;
+        
+        // ★ 核心魔法：因為資料是新的在前面，所以 group.records[0] 絕對是最新的一筆！
+        const latestRecord = group.records[0];
+
         html += `
           <tr>
             <td>${group.dateStr}</td>
             <td class="text-success fw-bold">${dispNo}</td>
             <td>${group.chartNo}</td>
+            <td>
+              <!-- ★ 顯示最新進度 -->
+              <span class="text-primary fw-bold">${latestRecord.staffName}</span> 
+              <span class="text-muted small ms-1">(${latestRecord.time})</span>
+            </td>
             <td><span class="badge bg-secondary rounded-pill">${group.records.length} 筆</span></td>
             <td>
               <button class="btn btn-outline-success btn-sm fw-bold" type="button" data-bs-toggle="collapse" data-bs-target="#${collapseId}">
@@ -220,7 +231,8 @@
             </td>
           </tr>
           <tr class="collapse sub-table-row" id="${collapseId}">
-            <td colspan="5" class="p-3">
+            <!-- ★ 展開後的合併欄位也改為 6 -->
+            <td colspan="6" class="p-3">
               <table class="table table-sm table-bordered mb-0 bg-white">
                 <thead class="table-light"><tr><th>處方日期</th><th>經手人員</th><th>刷入時間</th></tr></thead>
                 <tbody>
