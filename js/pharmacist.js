@@ -231,3 +231,171 @@ async function receiveDoc(signId) {
 
 document.getElementById('btnRefreshPending').addEventListener('click', refreshPharmaDocs);
 function logout() { sessionStorage.removeItem('pharmaId'); sessionStorage.removeItem('pharmaName'); window.location.href = 'index.html'; }
+
+// ==========================================
+// 氣送作業管理模組 (比照傳送端出院帶藥)
+// ==========================================
+
+// --- 音效模組 ---
+function playSuccessSound() {
+  const AudioContext = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContext) return;
+  const ctx = new AudioContext();
+  const osc = ctx.createOscillator();
+  const gainNode = ctx.createGain();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(800, ctx.currentTime); 
+  gainNode.gain.setValueAtTime(0.1, ctx.currentTime);
+  gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
+  osc.connect(gainNode);
+  gainNode.connect(ctx.destination);
+  osc.start();
+  osc.stop(ctx.currentTime + 0.15);
+}
+
+function playErrorSound() {
+  const AudioContext = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContext) return;
+  const ctx = new AudioContext();
+  const osc = ctx.createOscillator();
+  const gainNode = ctx.createGain();
+  osc.type = 'sawtooth';
+  osc.frequency.setValueAtTime(150, ctx.currentTime); 
+  osc.frequency.linearRampToValueAtTime(100, ctx.currentTime + 0.3);
+  gainNode.gain.setValueAtTime(0.2, ctx.currentTime);
+  gainNode.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.3);
+  osc.connect(gainNode);
+  gainNode.connect(ctx.destination);
+  osc.start();
+  osc.stop(ctx.currentTime + 0.3);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const today = new Date().toISOString().split('T')[0];
+  const pDateInput = document.getElementById('pneumaticDate');
+  if(pDateInput) pDateInput.value = today;
+
+  const pBarcodeInput = document.getElementById('pneumaticBarcodeInput');
+  const pCardContainer = document.getElementById('pneumaticCardContainer');
+  const pTotalCountSpan = document.getElementById('pneumaticTotalCount');
+  const pEmptyState = document.getElementById('pneumaticEmptyState');
+  
+  // 使用 Set 防止重複計數 (與傳送端邏輯相同)
+  const pScannedItems = new Set();
+
+  // --- 強制焦點控制 ---
+  // 當切換到氣送頁籤時，自動對焦
+  const pneumaticTab = document.getElementById('pneumatic-tab');
+  if(pneumaticTab) {
+    pneumaticTab.addEventListener('shown.bs.tab', () => {
+      if(pBarcodeInput) pBarcodeInput.focus();
+    });
+  }
+  // 在氣送頁籤點擊空白處時，確保游標不會跑掉
+  document.body.addEventListener('click', (e) => {
+    const activeTab = document.querySelector('.nav-link.active');
+    if (activeTab && activeTab.id === 'pneumatic-tab') {
+      if (e.target.tagName !== 'BUTTON' && !e.target.classList.contains('nav-link') && e.target.tagName !== 'INPUT') {
+         if(pBarcodeInput) pBarcodeInput.focus();
+      }
+    }
+  });
+
+  // --- 條碼掃描事件 ---
+  if(pBarcodeInput) {
+    pBarcodeInput.addEventListener('keypress', async (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        const barcodeValue = pBarcodeInput.value.trim();
+        if (!barcodeValue) return;
+
+        // 驗證條碼格式
+        const parts = barcodeValue.split(';');
+        if (parts.length < 5 || !parts[2] || !parts[2].startsWith('8')) {
+          playErrorSound(); 
+          Swal.fire({ icon: 'error', title: '條碼格式錯誤', text: '請確認是否刷對條碼，領藥號必須為 8 開頭！', timer: 2000 });
+          pBarcodeInput.value = '';
+          pBarcodeInput.focus();
+          return;
+        }
+
+        const chartNo = parts[0]; 
+        const dispenseNo = parts[2]; 
+        const rawDateStr = parts[4]; 
+        const dateMatch = rawDateStr.match(/[A-Za-z](\d{8})/);
+        const rxDate = dateMatch ? dateMatch[1] : '';
+
+        // 檢查是否為重複刷入
+        const itemKey = `${dispenseNo}-${rxDate}`;
+        const isNewItem = !pScannedItems.has(itemKey);
+
+        const payload = {
+          date: pDateInput.value,
+          barcode: barcodeValue,
+          type: '氣送', // ★ 關鍵差異：送去 GAS 時自動寫為「氣送」
+          staffId: currentPharmaId,
+          staffName: currentPharmaName,
+          chartNo: chartNo,
+          dispenseNo: dispenseNo,
+          rxDate: rxDate
+        };
+
+        const cardId = 'p_card_' + Date.now();
+        
+        // 渲染畫面卡片
+        if (isNewItem) {
+          pScannedItems.add(itemKey);
+          addPneumaticCardToUI(payload, cardId, true); 
+          pTotalCountSpan.textContent = pScannedItems.size;
+        } else {
+          addPneumaticCardToUI(payload, cardId, true, true); 
+        }
+        
+        pBarcodeInput.value = '';
+        pBarcodeInput.focus();
+
+        // 呼叫 GAS 寫入同一張 Discharge_Meds_Log 表
+        const result = await callGAS('logDischargeMeds', { payload: payload });
+        
+        if (result.success) {
+          playSuccessSound(); 
+          const successCard = document.getElementById(cardId);
+          if(successCard) successCard.classList.replace('border-warning', 'border-success');
+        } else {
+          playErrorSound();
+          const errorCard = document.getElementById(cardId);
+          if(errorCard){
+            errorCard.classList.replace('border-warning', 'border-danger');
+            errorCard.querySelector('.card-body').innerHTML += `<div class="text-danger mt-1 fs-6 fw-bold">寫入失敗</div>`;
+          }
+        }
+      }
+    });
+  }
+
+  // --- 渲染卡片 UI 函數 ---
+  function addPneumaticCardToUI(data, cardId, isPending, isDuplicate = false) {
+    if (pEmptyState) pEmptyState.style.display = 'none';
+    const card = document.createElement('div');
+    card.id = cardId;
+    card.className = `card mb-3 shadow-sm ${isPending ? 'border-warning' : 'border-success'} border-2`;
+    
+    const now = new Date();
+    const timeString = `${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}:${now.getSeconds().toString().padStart(2,'0')}`;
+
+    card.innerHTML = `
+      <div class="card-body py-3 px-4">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <h3 class="m-0 text-success fw-bold">領藥號：${data.dispenseNo} ${isDuplicate ? '<span class="badge bg-warning text-dark fs-6 ms-2">重複刷入</span>' : ''}</h3>
+          <span class="text-muted fs-4">${timeString}</span>
+        </div>
+        <div class="mb-2 fs-5 text-secondary">病歷號：<span class="fw-bold text-dark">${data.chartNo}</span> | 處方日期：${data.rxDate}</div>
+        <div class="fs-5 text-secondary border-top pt-2">
+          <span class="badge bg-primary me-2 fs-6"><i class="bi bi-rocket-takeoff me-1"></i>${data.type}</span>
+          由 <span class="fw-bold text-primary">${data.staffName} 藥師</span> 處理
+        </div>
+      </div>
+    `;
+    pCardContainer.insertBefore(card, pCardContainer.firstChild);
+  }
+});
