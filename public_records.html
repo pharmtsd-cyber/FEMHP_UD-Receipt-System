@@ -241,7 +241,7 @@
       tbody.innerHTML = html;
     }
 
-    // 3. 渲染文件收發表格 (附加資訊標籤化、經手歷程排版)
+// 3. 渲染文件收發表格 (拔除寫死的重複資訊，完全交給動態標籤)
     function renderDocs() {
       const typeFilter = document.getElementById('filterDocType').value.trim().toLowerCase();
       const chartFilter = document.getElementById('filterDocChart').value.trim().toLowerCase();
@@ -273,12 +273,8 @@
           <td class="fw-bold fs-5 text-dark">${r.type}</td>
           
           <td>
-            <div class="mb-2">
-              病房: <span class="text-primary fw-bold me-3">${r.ward || '-'}</span> 
-              病歷號: <span class="fw-bold">${r.chartNo || '-'}</span>
-            </div>
-            <!-- 後端已經傳來乾淨的 badge 標籤結構了 -->
-            <div>${r.detailsHtml}</div>
+            <!-- ★ 這裡把寫死的重複文字刪除，完全依賴後端傳來的整齊標籤 -->
+            <div class="mt-1">${r.detailsHtml}</div>
           </td>
           
           <td>
