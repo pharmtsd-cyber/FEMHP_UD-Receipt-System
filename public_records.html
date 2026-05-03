@@ -125,7 +125,7 @@
       loadRecords(); // 初始載入
     });
 
-    // 1. 向 GAS 要資料
+// 1. 向 GAS 要資料
     async function loadRecords() {
       const start = document.getElementById('startDate').value;
       const end = document.getElementById('endDate').value;
@@ -138,10 +138,10 @@
 
       const payload = { startDate: start, endDate: end };
 
-      // 同時抓取帶藥與文件資料
+      // ★ 這裡修改：把 payload 用大括號包起來，與其他 API 統一格式
       const [medRes, docRes] = await Promise.all([
-        callGAS('getDailyRecords', payload),
-        callGAS('getPublicDocRecords', payload)
+        callGAS('getDailyRecords', { payload: payload }),
+        callGAS('getPublicDocRecords', { payload: payload })
       ]);
 
       allMedsData = medRes.success ? medRes.data : [];
