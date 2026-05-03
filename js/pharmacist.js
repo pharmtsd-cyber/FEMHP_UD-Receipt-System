@@ -3,6 +3,8 @@
 let currentPharmaId = sessionStorage.getItem('pharmaId');
 let currentPharmaName = sessionStorage.getItem('pharmaName');
 let replyOptionsData = []; 
+// 在 pharmacist.js 最上方加入這個共用提示設定：
+const Toast = Swal.mixin({ toast: true, position: 'top-end', showConfirmButton: false, timer: 2000, timerProgressBar: true });
 
 document.addEventListener('DOMContentLoaded', async () => {
   if (!currentPharmaId || !currentPharmaName) {
@@ -155,12 +157,13 @@ async function editDocInfo(signId, currentWard, currentChartNo) {
     }
   });
 
+// === 1. 藥師修改資料 === (修改這部分)
   if (formValues) {
-    Swal.fire({ title: '儲存中...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+    Toast.fire({ icon: 'info', title: '背景儲存中...', timer: 3000 }); // ★ 替換原本的轉圈圈
     const payload = { action: 'updateInfo', signId: signId, ward: formValues.ward, chartNo: formValues.chartNo };
     const res = await callGAS('editDocRecord', { payload: payload });
     if (res.success) {
-      Swal.fire({ icon: 'success', title: '修改成功', timer: 1000, showConfirmButton: false }); // ★ 蓋掉轉圈圈
+      Toast.fire({ icon: 'success', title: '修改成功' });
       refreshPharmaDocs();
     } else {
       Swal.fire('失敗', res.message, 'error');
@@ -179,12 +182,13 @@ async function revertDoc(signId) {
     confirmButtonText: '是的，撤銷'
   });
 
+// === 2. 藥師撤銷收單 === (修改這部分)
   if (confirm.isConfirmed) {
-    Swal.fire({ title: '撤銷中...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+    Toast.fire({ icon: 'info', title: '背景撤銷中...', timer: 3000 }); // ★ 替換原本的轉圈圈
     const payload = { action: 'revertReceive', signId: signId };
     const res = await callGAS('editDocRecord', { payload: payload });
     if (res.success) {
-      Swal.fire({ icon: 'success', title: '已撤銷', timer: 1000, showConfirmButton: false }); // ★ 蓋掉轉圈圈
+      Toast.fire({ icon: 'success', title: '已撤銷' });
       refreshPharmaDocs();
     } else {
       Swal.fire('失敗', res.message, 'error');
@@ -216,12 +220,13 @@ async function receiveDoc(signId) {
     }
   });
 
+// === 3. 確認收單 === (修改這部分)
   if (isConfirmed && formValues) {
-    Swal.fire({ title: '處理中...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+    Toast.fire({ icon: 'info', title: '背景收單中...', timer: 3000 }); // ★ 替換原本的轉圈圈
     const payload = { signId, pharmaId: currentPharmaId, pharmaName: currentPharmaName, replyOption: formValues.replyOption, note: formValues.note };
     const res = await callGAS('receiveDocTransfer', { payload: payload });
     if (res.success) {
-      Swal.fire({ icon: 'success', title: '收單成功', timer: 1000, showConfirmButton: false }); // ★ 蓋掉轉圈圈
+      Toast.fire({ icon: 'success', title: '收單成功' });
       refreshPharmaDocs();
     } else {
       Swal.fire('失敗', res.message, 'error');
