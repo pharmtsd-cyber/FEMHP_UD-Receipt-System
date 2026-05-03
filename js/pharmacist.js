@@ -42,20 +42,22 @@ async function refreshPharmaDocs() {
         card.className = 'card mb-2 shadow-sm border-warning border-start border-4';
         card.innerHTML = `
           <div class="card-body p-2">
-            <div class="d-flex justify-content-between mb-1">
-              <strong class="text-dark fs-6">${item.type}</strong>
-              <small class="text-danger fw-bold">${item.sendTime} 送達</small>
+            <!-- 拿掉右上角時間，只留標題 -->
+            <div class="mb-1">
+              <strong class="text-dark fs-5">${item.type}</strong>
             </div>
+            
             <div class="fs-6 mb-2">
               ${item.detailsHtml}
               <button class="btn btn-sm btn-link py-0 px-1 text-secondary ms-1" onclick="editDocInfo('${item.signId}', '${item.ward}', '${item.chartNo}')"><i class="bi bi-pencil-square"></i> 修改</button>
             </div>
             ${item.sendNote ? `<div class="text-danger small mb-2 bg-light p-1 rounded"><i class="bi bi-exclamation-triangle-fill me-1"></i>送件備註: ${item.sendNote}</div>` : ''}
             
-            <!-- ★ 左側卡片：經手人區塊 -->
+            <!-- ★ 左側卡片：經手人與時間區塊 -->
             <div class="d-flex justify-content-between align-items-center mt-2 border-top pt-2">
               <div class="small text-muted">
                 <i class="bi bi-person-walking"></i> 送件人: <strong class="text-dark">${item.senderName}</strong>
+                <span class="ms-2">送件時間: <strong>${item.sendTime}</strong></span>
               </div>
               <button class="btn btn-warning btn-sm fw-bold" onclick="receiveDoc('${item.signId}')">進行收單</button>
             </div>
@@ -88,9 +90,9 @@ async function refreshPharmaDocs() {
         card.className = `card mb-2 shadow-sm border-start border-4 ${borderClass}`;
         card.innerHTML = `
           <div class="card-body p-2">
-            <div class="d-flex justify-content-between mb-1">
-              <strong class="text-primary fs-6">${item.type}</strong>
-              <small class="text-muted">${item.receiveTime} 收</small>
+            <!-- 拿掉右上角時間，只留標題 -->
+            <div class="mb-1">
+              <strong class="text-primary fs-5">${item.type}</strong>
             </div>
             
             <div class="small text-secondary mb-1">
@@ -103,13 +105,22 @@ async function refreshPharmaDocs() {
               ${item.receiveNote ? `<div class="text-primary"><i class="bi bi-capsule me-1"></i>藥師備註: <span class="fw-bold">${item.receiveNote}</span></div>` : ''}
             </div>` : ''}
 
-            <!-- ★ 右側卡片：所有經手人清單 -->
+            <!-- ★ 右側卡片：所有經手人與時間清單 -->
             <div class="d-flex justify-content-between align-items-end mt-2 border-top pt-2">
               <div class="small text-muted">
-                <div class="mb-1"><i class="bi bi-person-walking me-1"></i>送件人: <strong class="text-dark">${item.senderName}</strong></div>
-                <div class="mb-1"><i class="bi bi-capsule me-1"></i>收單人: <strong class="text-primary">${item.pharmaName}</strong></div>
+                <div class="mb-1">
+                  <i class="bi bi-person-walking me-1"></i>送件人: <strong class="text-dark">${item.senderName}</strong>
+                  <span class="ms-2">送件時間: <strong>${item.sendTime}</strong></span>
+                </div>
+                <div class="mb-1">
+                  <i class="bi bi-capsule me-1"></i>收單人: <strong class="text-primary">${item.pharmaName}</strong>
+                  <span class="ms-2">收單時間: <strong>${item.receiveTime}</strong></span>
+                </div>
                 ${item.returnerName && item.returnerName !== '系統結案' && item.replyOption === '已領回' 
-                  ? `<div><i class="bi bi-check2-circle me-1"></i>領回人: <strong class="text-success">${item.returnerName}</strong></div>` 
+                  ? `<div>
+                      <i class="bi bi-check2-circle me-1"></i>領回人: <strong class="text-success">${item.returnerName}</strong>
+                      <span class="ms-2">領回時間: <strong>${item.returnTime}</strong></span>
+                     </div>` 
                   : ''}
               </div>
               <div class="text-end">
