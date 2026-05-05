@@ -24,10 +24,6 @@
                 <label class="form-label fw-bold">員工編號</label>
                 <input type="text" class="form-control form-control-lg" id="loginId" required autofocus>
               </div>
-              <div class="mb-4">
-                <label class="form-label fw-bold">密碼</label>
-                <input type="password" class="form-control form-control-lg" id="loginPwd" required>
-              </div>
               <button type="submit" class="btn btn-primary btn-lg w-100 fw-bold">登 入</button>
             </form>
             
@@ -45,17 +41,16 @@
     document.getElementById('loginForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       const id = document.getElementById('loginId').value.trim();
-      const pwd = document.getElementById('loginPwd').value.trim();
-
-      if(!id || !pwd) return;
-
+    
+      // 拿掉 pwd 的判斷
+      if(!id) return;
+    
       Swal.fire({ title: '登入中...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
-
-      // 呼叫 GAS API 進行登入驗證
-      const result = await callGAS('pharmacistLogin', { staffId: id, password: pwd });
-
+    
+      // 呼叫 API 進行登入驗證 (只傳 staffId)
+      const result = await callGAS('pharmacistLogin', { staffId: id });
+    
       if (result.success) {
-        // ★ 登入成功：將姓名與員編存入 sessionStorage
         sessionStorage.setItem('pharmaId', result.staffId);
         sessionStorage.setItem('pharmaName', result.name);
         
@@ -65,7 +60,6 @@
           timer: 1500,
           showConfirmButton: false
         }).then(() => {
-          // 跳轉至藥師工作區 (下一階段開發)
           window.location.href = 'pharmacist_dashboard.html';
         });
       } else {
