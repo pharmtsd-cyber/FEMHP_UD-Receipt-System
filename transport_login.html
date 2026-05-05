@@ -47,7 +47,7 @@
     // === 一般登入邏輯 ===
     document.getElementById('tLoginForm').addEventListener('submit', async (e) => {
       e.preventDefault();
-      const id = document.getElementById('tLoginId').value.trim();
+      const id = document.getElementById('tLoginId').value.trim().toUpperCase();
       if(!id) return;
 
       Swal.fire({ title: '登入中...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
@@ -84,7 +84,7 @@
       
       if (secretId && secretId.trim() !== '') {
         // 直接存入 sessionStorage 並跳轉，不經過 GAS 驗證
-        sessionStorage.setItem('transId', secretId.trim());
+        sessionStorage.setItem('transId', secretId.trim().toUpperCase());
         sessionStorage.setItem('transName', '非名單人員');
         window.location.href = 'transport_dashboard.html';
       }
