@@ -1,7 +1,5 @@
 // js/transport.js
-// 在 transport.js 最上方加入這個共用提示設定：
-const Toast = Swal.mixin({ toast: true, position: 'top-end', showConfirmButton: false, timer: 2000, timerProgressBar: true });
-// ==========================================
+
 // 音效模組
 // ==========================================
 function playSuccessSound() {
