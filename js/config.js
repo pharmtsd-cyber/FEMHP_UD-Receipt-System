@@ -1,7 +1,7 @@
 // js/config.js
 
 // ★ 將這裡替換為您剛剛在 Power Automate 複製的那一長串 URL
-const MS_FLOW_API_URL = "https://prod-XX.westus.logic.azure.com:443/workflows/https://defaultf611cf53b6864814b03558908d4900.be.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/b8885468ce9e4e91bd513632ce0c9bb2/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=-utvV9pjf3BeN987pdFfQjkB7OdCoYWUbj2c9hrUv6E";
+const MS_FLOW_API_URL = "https://defaultf611cf53b6864814b03558908d4900.be.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/b8885468ce9e4e91bd513632ce0c9bb2/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=-utvV9pjf3BeN987pdFfQjkB7OdCoYWUbj2c9hrUv6E";
 
 // 封裝與 Power Automate 溝通的共用函數
 async function callGAS(action, dataObj) {
