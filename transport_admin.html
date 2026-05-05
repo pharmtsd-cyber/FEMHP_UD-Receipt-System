@@ -87,7 +87,7 @@
     // === 登入邏輯 ===
     document.getElementById('adminLoginForm').addEventListener('submit', async (e) => {
       e.preventDefault();
-      const id = document.getElementById('adminLoginId').value.trim();
+      const id = document.getElementById('adminLoginId').value.trim().toUpperCase();
       if(!id) return;
 
       Toast.fire({ icon: 'info', title: '驗證權限中...', timer: 5000 });
