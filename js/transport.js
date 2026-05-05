@@ -123,6 +123,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const result = await callGAS('logDischargeMeds', {
           date: document.getElementById('medDate').value,
           barcode: barcodeValue,
+          type: '傳送',
           staffId: transId,
           staffName: transName,
           chartNo: chartNo,
