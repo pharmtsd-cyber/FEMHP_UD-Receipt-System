@@ -28,7 +28,7 @@ async function refreshPharmaDocs() {
   pendingBox.innerHTML = '<div class="text-center py-3">讀取中...</div>';
   completedBox.innerHTML = '<div class="text-center py-3">讀取中...</div>';
 
-  const result = await callGAS('getPharmaDocRecords', {});
+  const result = await callGAS('logDischargeMeds', payload);
 
   if (result.success) {
     // === 左側：待收單 ===
