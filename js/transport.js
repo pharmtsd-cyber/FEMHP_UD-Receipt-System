@@ -345,6 +345,7 @@ async function loadTodayDocs() {
                 <i class="bi bi-capsule"></i> 藥師: <span class="${item.pharmaName === '等待中' ? 'text-danger' : 'text-primary'}">${item.pharmaName}</span>
               </div>
               ${(item.status === '掛牌待傳送領回' || item.status === '退件') ? `<button class="btn btn-sm btn-outline-success fw-bold" onclick="acknowledgeReturn('${item.signId}')">確認領回</button>` : ''}
+              ${item.status === '待藥師收單' ? `<button class="btn btn-sm btn-outline-primary fw-bold" onclick="editSenderDoc('${item.signId}', '${item.type}', '${item.ward || ''}', '${item.chartNo || ''}', '${item.sendNote || ''}')"><i class="bi bi-pencil-square me-1"></i>修改資料</button>` : ''}
             </div>
           </div>
         </div>
@@ -379,4 +380,41 @@ document.addEventListener('DOMContentLoaded', () => {
 function logout() {
   sessionStorage.clear();
   window.location.href = 'index.html';
+}
+
+// === 傳送人員在藥師收單前修改資料 ===
+async function editSenderDoc(signId, currentType, currentWard, currentChartNo, currentSendNote) {
+  const safeWard = (currentWard === 'undefined' || currentWard === 'null' || !currentWard) ? '' : currentWard;
+  const safeChartNo = (currentChartNo === 'undefined' || currentChartNo === 'null' || !currentChartNo) ? '' : currentChartNo;
+  const safeSendNote = (currentSendNote === 'undefined' || currentSendNote === 'null' || !currentSendNote) ? '' : currentSendNote;
+
+  const { value: formValues } = await Swal.fire({
+    title: '修改送件資料',
+    html: `
+      <div class="text-start g-2 mb-3">
+        <div class="mb-2"><label class="small fw-bold text-muted">文件類型</label><input id="swal-type" class="form-control" value="${currentType}"></div>
+        <div class="mb-2"><label class="small fw-bold text-muted">病房床號</label><input id="swal-ward" class="form-control" value="${safeWard}"></div>
+        <div class="mb-2"><label class="small fw-bold text-muted">病歷號</label><input id="swal-chart" class="form-control" value="${safeChartNo}"></div>
+        <div class="mb-2"><label class="small fw-bold text-muted">送件備註</label><input id="swal-note" class="form-control" value="${safeSendNote}"></div>
+      </div>
+    `,
+    showCancelButton: true,
+    confirmButtonText: '確認修改',
+    preConfirm: () => {
+      return {
+        type: document.getElementById('swal-type').value,
+        ward: document.getElementById('swal-ward').value,
+        chartNo: document.getElementById('swal-chart').value,
+        sendNote: document.getElementById('swal-note').value
+      }
+    }
+  });
+
+  if (formValues) {
+    const res = await callGAS('editSenderDoc', { signId: signId, ...formValues });
+    if (res.success) {
+      Swal.fire({ icon: 'success', title: '修改成功', timer: 1500, showConfirmButton: false });
+      loadTodayDocs(); // 自動刷新卡片
+    }
+  }
 }
