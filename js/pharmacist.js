@@ -144,7 +144,7 @@ async function editDocInfo(signId, currentWard, currentChartNo) {
   if (formValues) {
     Toast.fire({ icon: 'info', title: '背景儲存中...', timer: 3000 }); // ★ 替換原本的轉圈圈
     const payload = { action: 'updateInfo', signId: signId, ward: formValues.ward, chartNo: formValues.chartNo };
-    const res = await callGAS('editDocRecord', { payload: payload });
+    const res = await callGAS('editDocRecord', payload);
     if (res.success) {
       Toast.fire({ icon: 'success', title: '修改成功' });
       refreshPharmaDocs();
@@ -169,7 +169,7 @@ async function revertDoc(signId) {
   if (confirm.isConfirmed) {
     Toast.fire({ icon: 'info', title: '背景撤銷中...', timer: 3000 }); // ★ 替換原本的轉圈圈
     const payload = { action: 'revertReceive', signId: signId };
-    const res = await callGAS('editDocRecord', { payload: payload });
+    const res = await callGAS('editDocRecord', payload);
     if (res.success) {
       Toast.fire({ icon: 'success', title: '已撤銷' });
       refreshPharmaDocs();
@@ -207,7 +207,7 @@ async function receiveDoc(signId) {
   if (isConfirmed && formValues) {
     Toast.fire({ icon: 'info', title: '背景收單中...', timer: 3000 }); // ★ 替換原本的轉圈圈
     const payload = { signId, pharmaId: currentPharmaId, pharmaName: currentPharmaName, replyOption: formValues.replyOption, note: formValues.note };
-    const res = await callGAS('receiveDocTransfer', { payload: payload });
+    const res = await callGAS('receiveDocTransfer', payload);
     if (res.success) {
       Toast.fire({ icon: 'success', title: '收單成功' });
       refreshPharmaDocs();
