@@ -3,8 +3,6 @@
 let currentPharmaId = sessionStorage.getItem('pharmaId');
 let currentPharmaName = sessionStorage.getItem('pharmaName');
 let replyOptionsData = []; 
-// 在 pharmacist.js 最上方加入這個共用提示設定：
-const Toast = Swal.mixin({ toast: true, position: 'top-end', showConfirmButton: false, timer: 2000, timerProgressBar: true });
 
 document.addEventListener('DOMContentLoaded', async () => {
   if (!currentPharmaId || !currentPharmaName) {
