@@ -111,7 +111,7 @@ async function refreshPharmaDocs() {
               </div>
               <div class="text-end">
                 <span class="badge ${badgeClass} mb-2 d-block fs-6">${item.IsClosed && item.ReplyOption !== '收下不歸還' ? '已領回' : item.ReplyOption}</span>
-                <button class="btn btn-outline-danger btn-sm py-0 w-100" onclick="revertDoc('${item.Title}')">撤銷</button>
+                <button class="btn btn-outline-primary btn-sm py-0 w-100" onclick="editDocInfo('${item.Title}', '${item.ReplyOption}', '${item.ReceiveNote || ''}')">修改狀態</button>
               </div>
             </div>
           </div>
@@ -154,27 +154,53 @@ async function editDocInfo(signId, currentWard, currentChartNo) {
   }
 }
 
-// === 藥師撤銷收單 ===
-async function revertDoc(signId) {
-  const confirm = await Swal.fire({
-    title: '確定要撤銷嗎？',
-    text: "撤銷後，該筆單據會回到左側的「待收單」列表，且傳送人員的紀錄也會恢復未結案狀態。",
-    icon: 'warning',
+// === 藥師修改已收單的狀態與備註 ===
+async function editDocInfo(signId, currentOption, currentNote) {
+  // 處理 undefined 避免顯示在畫面上
+  const safeNote = (currentNote === 'undefined' || currentNote === 'null' || !currentNote) ? '' : currentNote;
+
+  // 動態產生下拉選單，並讓它預設選中目前的狀態
+  const optionsHtml = replyOptionsData.map(opt => 
+    `<option value="${opt}" ${opt === currentOption ? 'selected' : ''}>${opt}</option>`
+  ).join('');
+
+  const { value: formValues } = await Swal.fire({
+    title: '修改處置狀態與備註',
+    html: `
+      <div class="text-start mb-3">
+        <label class="form-label text-muted small fw-bold">選擇新狀態</label>
+        <select id="swal-edit-option" class="form-select">${optionsHtml}</select>
+      </div>
+      <div class="text-start">
+        <label class="form-label text-muted small fw-bold">修改備註 (選填)</label>
+        <input id="swal-edit-note" class="form-control" placeholder="請輸入新的備註" value="${safeNote}">
+      </div>
+    `,
     showCancelButton: true,
-    confirmButtonColor: '#dc3545',
-    confirmButtonText: '是的，撤銷'
+    confirmButtonColor: '#0d6efd',
+    confirmButtonText: '<i class="bi bi-save me-1"></i>確認儲存',
+    cancelButtonText: '取消',
+    preConfirm: () => {
+      return {
+        replyOption: document.getElementById('swal-edit-option').value,
+        note: document.getElementById('swal-edit-note').value
+      }
+    }
   });
 
-// === 2. 藥師撤銷收單 === (修改這部分)
-  if (confirm.isConfirmed) {
-    Toast.fire({ icon: 'info', title: '背景撤銷中...', timer: 3000 }); // ★ 替換原本的轉圈圈
-    const payload = { action: 'revertReceive', signId: signId };
-    const res = await callGAS('editDocRecord', payload);
+  if (formValues) {
+    // 呼叫 API 進行修改 (記得這裡一樣不要包雙層 payload)
+    const res = await callGAS('editDocRecord', {
+      signId: signId,
+      replyOption: formValues.replyOption,
+      note: formValues.note
+    });
+
     if (res.success) {
-      Toast.fire({ icon: 'success', title: '已撤銷' });
-      refreshPharmaDocs();
+      Swal.fire({ icon: 'success', title: '修改成功', timer: 1500, showConfirmButton: false });
+      refreshPharmaDocs(); // 自動重整畫面
     } else {
-      Swal.fire('失敗', res.message, 'error');
+      Swal.fire('失敗', '修改發生錯誤', 'error');
     }
   }
 }
