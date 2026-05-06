@@ -111,7 +111,7 @@ async function refreshPharmaDocs() {
               </div>
               <div class="text-end">
                 <span class="badge ${badgeClass} mb-2 d-block fs-6">${item.IsClosed && item.ReplyOption !== '收下不歸還' ? '已領回' : item.ReplyOption}</span>
-                <button class="btn btn-outline-primary btn-sm py-0 w-100" onclick="editDocInfo('${item.Title}', '${item.ReplyOption}', '${item.ReceiveNote || ''}')">修改狀態</button>
+                <button class="btn btn-outline-primary btn-sm py-0 w-100" onclick="editDocInfo('${item.Title}', '${item.ReplyOption}', '${item.ReceiveNote || ''}', '${item.DocType}', '${item.Ward || ''}', '${item.ChartNo || ''}', '${item.SenderName}', '${item.SendNote || ''}')">修改全部資料</button>
               </div>
             </div>
           </div>
@@ -154,34 +154,44 @@ async function editDocInfo(signId, currentWard, currentChartNo) {
   }
 }
 
-// === 藥師修改已收單的狀態與備註 ===
-async function editDocInfo(signId, currentOption, currentNote) {
-  // 處理 undefined 避免顯示在畫面上
+async function editDocInfo(signId, currentOption, currentNote, currentType, currentWard, currentChartNo, currentSender, currentSendNote) {
   const safeNote = (currentNote === 'undefined' || currentNote === 'null' || !currentNote) ? '' : currentNote;
+  const safeSendNote = (currentSendNote === 'undefined' || currentSendNote === 'null' || !currentSendNote) ? '' : currentSendNote;
+  const safeWard = (currentWard === 'undefined' || currentWard === 'null' || !currentWard) ? '' : currentWard;
+  const safeChartNo = (currentChartNo === 'undefined' || currentChartNo === 'null' || !currentChartNo) ? '' : currentChartNo;
 
-  // 動態產生下拉選單，並讓它預設選中目前的狀態
-  const optionsHtml = replyOptionsData.map(opt => 
-    `<option value="${opt}" ${opt === currentOption ? 'selected' : ''}>${opt}</option>`
-  ).join('');
+  const optionsHtml = replyOptionsData.map(opt => `<option value="${opt}" ${opt === currentOption ? 'selected' : ''}>${opt}</option>`).join('');
 
   const { value: formValues } = await Swal.fire({
-    title: '修改處置狀態與備註',
+    title: '修改單據詳細資料',
     html: `
-      <div class="text-start mb-3">
-        <label class="form-label text-muted small fw-bold">選擇新狀態</label>
+      <div class="row text-start g-2 mb-3 bg-light p-2 rounded">
+        <div class="col-6"><label class="small fw-bold text-muted">文件類型</label><input id="swal-type" class="form-control form-control-sm" value="${currentType}"></div>
+        <div class="col-6"><label class="small fw-bold text-muted">送件人</label><input id="swal-sender" class="form-control form-control-sm" value="${currentSender}"></div>
+        <div class="col-6"><label class="small fw-bold text-muted">病房床號</label><input id="swal-ward" class="form-control form-control-sm" value="${safeWard}"></div>
+        <div class="col-6"><label class="small fw-bold text-muted">病歷號</label><input id="swal-chart" class="form-control form-control-sm" value="${safeChartNo}"></div>
+        <div class="col-12"><label class="small fw-bold text-muted">送件備註</label><input id="swal-sendnote" class="form-control form-control-sm" value="${safeSendNote}"></div>
+      </div>
+      <hr>
+      <div class="text-start mb-2">
+        <label class="small fw-bold text-primary">處置狀態</label>
         <select id="swal-edit-option" class="form-select">${optionsHtml}</select>
       </div>
       <div class="text-start">
-        <label class="form-label text-muted small fw-bold">修改備註 (選填)</label>
-        <input id="swal-edit-note" class="form-control" placeholder="請輸入新的備註" value="${safeNote}">
+        <label class="small fw-bold text-primary">藥師備註</label>
+        <input id="swal-edit-note" class="form-control" value="${safeNote}">
       </div>
     `,
     showCancelButton: true,
-    confirmButtonColor: '#0d6efd',
-    confirmButtonText: '<i class="bi bi-save me-1"></i>確認儲存',
-    cancelButtonText: '取消',
+    confirmButtonText: '確認儲存',
+    width: '500px',
     preConfirm: () => {
       return {
+        type: document.getElementById('swal-type').value,
+        ward: document.getElementById('swal-ward').value,
+        chartNo: document.getElementById('swal-chart').value,
+        senderName: document.getElementById('swal-sender').value,
+        sendNote: document.getElementById('swal-sendnote').value,
         replyOption: document.getElementById('swal-edit-option').value,
         note: document.getElementById('swal-edit-note').value
       }
@@ -189,18 +199,10 @@ async function editDocInfo(signId, currentOption, currentNote) {
   });
 
   if (formValues) {
-    // 呼叫 API 進行修改 (記得這裡一樣不要包雙層 payload)
-    const res = await callGAS('editDocRecord', {
-      signId: signId,
-      replyOption: formValues.replyOption,
-      note: formValues.note
-    });
-
+    const res = await callGAS('editDocRecord', { signId: signId, ...formValues });
     if (res.success) {
       Swal.fire({ icon: 'success', title: '修改成功', timer: 1500, showConfirmButton: false });
-      refreshPharmaDocs(); // 自動重整畫面
-    } else {
-      Swal.fire('失敗', '修改發生錯誤', 'error');
+      refreshPharmaDocs(); 
     }
   }
 }
