@@ -293,6 +293,10 @@ document.addEventListener('DOMContentLoaded', () => {
         Swal.fire({ icon: 'success', title: '送件成功', text: `系統單號: ${res.signId}`, timer: 2000 });
         docForm.reset();
         document.getElementById('dynamicFieldsContainer').innerHTML = '<div class="text-muted text-center py-4 fs-5">請先選擇送件類型</div>';
+        
+        // ★ 加上這一行，送出後自動刷新右邊的卡片列表！
+        loadTodayDocs(); 
+        
       } else {
         Swal.fire('失敗', res.message, 'error');
       }
@@ -300,6 +304,75 @@ document.addEventListener('DOMContentLoaded', () => {
       btn.disabled = false;
       btn.innerHTML = '<i class="bi bi-send-fill me-2"></i>確認送出';
     });
+  }
+});
+
+// 5. 獲取並渲染今日送件進度 (卡片產生器)
+async function loadTodayDocs() {
+  const container = document.getElementById('docRecordContainer');
+  const btn = document.getElementById('btnRefreshDoc');
+  if (!container) return;
+
+  // 讓按鈕轉圈圈，避免重複點擊
+  if(btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>讀取中';
+  }
+  container.innerHTML = '<div class="text-muted text-center py-5 fs-5">資料讀取中...</div>';
+
+  // 呼叫剛剛在 Power Automate 寫好的 API
+  const res = await callGAS('getTodayDocRecords');
+
+  if (res.success) {
+    if (res.data.length === 0) {
+      container.innerHTML = '<div class="text-muted text-center py-5 fs-5">今日尚無未結案的送件紀錄</div>';
+    } else {
+      // 將資料陣列轉換成精美的卡片 HTML
+      container.innerHTML = res.data.map(item => `
+        <div class="card mb-3 shadow-sm border-start border-4 ${item.status === '待藥師收單' ? 'border-warning' : (item.status === '退件' ? 'border-danger' : 'border-primary')}">
+          <div class="card-body p-3">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <span class="badge ${item.status === '待藥師收單' ? 'bg-warning text-dark' : (item.status === '退件' ? 'bg-danger' : 'bg-primary')} fs-6">${item.status}</span>
+              <span class="text-muted small">${item.sendTime}</span>
+            </div>
+            <h5 class="fw-bold text-dark mb-1">${item.type}</h5>
+            <div class="text-secondary small mb-2">
+              病房床號: <span class="fw-bold">${item.ward || '-'}</span> | 病歷號: <span class="fw-bold">${item.chartNo || '-'}</span>
+            </div>
+            <div class="d-flex justify-content-between align-items-end mt-2 pt-2 border-top">
+              <div class="small text-muted">
+                <i class="bi bi-person-walking"></i> 送件: ${item.sender}<br>
+                <i class="bi bi-capsule"></i> 藥師: <span class="${item.pharmaName === '等待中' ? 'text-danger' : 'text-primary'}">${item.pharmaName}</span>
+              </div>
+              ${(item.status === '掛牌待傳送領回' || item.status === '退件') ? `<button class="btn btn-sm btn-outline-success fw-bold" onclick="acknowledgeReturn('${item.signId}')">確認領回</button>` : ''}
+            </div>
+          </div>
+        </div>
+      `).join('');
+    }
+  } else {
+    container.innerHTML = '<div class="text-danger text-center py-5 fs-5">讀取失敗，請確認網路連線</div>';
+  }
+
+  // 恢復按鈕狀態
+  if(btn) {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="bi bi-arrow-clockwise me-1"></i>重整';
+  }
+}
+
+// 6. 綁定「重整按鈕」與「頁籤切換」事件
+document.addEventListener('DOMContentLoaded', () => {
+  // 綁定重整按鈕
+  const btnRefreshDoc = document.getElementById('btnRefreshDoc');
+  if (btnRefreshDoc) {
+    btnRefreshDoc.addEventListener('click', loadTodayDocs);
+  }
+  
+  // 當點擊「送文件給藥局」這個頁籤時，自動載入最新資料
+  const docTab = document.getElementById('doc-tab');
+  if (docTab) {
+    docTab.addEventListener('shown.bs.tab', loadTodayDocs);
   }
 });
 
