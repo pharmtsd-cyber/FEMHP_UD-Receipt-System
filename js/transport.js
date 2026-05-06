@@ -179,19 +179,25 @@ function addCardToUI(data, cardId, isPending, isDuplicate = false) {
 // ==========================================
 // 輔助函數：取得選單 (Switch 案例 3)[cite: 1]
 // ==========================================
+// 1. 宣告全域變數，用來記住所有文件類型的欄位設定
+let globalDocConfigs = [];
+
+// 2. 覆寫原本的 loadDocConfig
 async function loadDocConfig() {
   const select = document.getElementById('docTypeSelect');
   if(!select) return;
   select.innerHTML = '<option value="">資料載入中...</option>';
 
   try {
-    const response = await callGAS('getConfigData'); // 對應 Switch 案例 3
+    const response = await callGAS('getConfigData'); 
     if (response.success && response.data) {
+      globalDocConfigs = response.data; // ★ 把後端攤平的 JSON 存起來
+
       select.innerHTML = '<option value="">請選擇類型...</option>';
       response.data.forEach(item => {
           const opt = document.createElement('option');
-          // 處理可能回傳的純文字或物件格式
-          const val = typeof item === 'object' ? item.Title : item;
+          // 以「送件類型名稱」或「Title」作為選項值
+          const val = item['送件類型名稱'] || item.Title;
           opt.value = val;
           opt.textContent = val;
           select.appendChild(opt);
@@ -203,6 +209,99 @@ async function loadDocConfig() {
     select.innerHTML = '<option value="">連線失敗</option>';
   }
 }
+
+// 3. 監聽下拉選單切換，動態渲染欄位
+document.addEventListener('DOMContentLoaded', () => {
+  const docTypeSelect = document.getElementById('docTypeSelect');
+  const container = document.getElementById('dynamicFieldsContainer');
+
+  if (docTypeSelect && container) {
+    docTypeSelect.addEventListener('change', (e) => {
+      const selectedType = e.target.value;
+      container.innerHTML = '';
+
+      if (!selectedType) {
+        container.innerHTML = '<div class="text-muted text-center py-4 fs-5">請先選擇送件類型</div>';
+        return;
+      }
+
+      // 從剛剛存起來的變數中，找到使用者選的那個設定檔
+      const config = globalDocConfigs.find(c => (c['送件類型名稱'] || c.Title) === selectedType);
+      if (!config) return;
+
+      let html = '';
+      // 這些是系統用的屬性，不需要變成輸入框
+      const excludeKeys = ['Title', '送件類型名稱'];
+
+      // 掃描 JSON 裡面的每一個屬性 (例如：病房床號、病歷號)
+      Object.keys(config).forEach(key => {
+        if (!excludeKeys.includes(key)) {
+          const requirement = config[key]; // 會得到 "必填", "選填", "隱藏"
+
+          if (requirement !== '隱藏') {
+            const isRequired = requirement === '必填' ? 'required' : '';
+            const star = requirement === '必填' ? '<span class="text-danger">*</span>' : '<span class="text-muted fs-6">(選填)</span>';
+
+            // ★ 加上 data-key，方便我們送出表單時抓取資料
+            html += `
+              <div class="mb-3 text-start">
+                <label class="form-label fw-bold fs-5">${key} ${star}</label>
+                <input type="text" class="form-control form-control-lg dynamic-input" data-key="${key}" placeholder="請輸入${key}" ${isRequired}>
+              </div>
+            `;
+          }
+        }
+      });
+
+      // 如果完全沒有設定欄位，或是都設為隱藏
+      if (html === '') {
+        html = '<div class="text-success text-center py-3 fw-bold"><i class="bi bi-check-circle me-2"></i>此文件不需填寫額外資料，請直接送出</div>';
+      }
+
+      container.innerHTML = html;
+    });
+  }
+});
+
+// 4. 攔截表單送出，將資料打包給 API 總機
+document.addEventListener('DOMContentLoaded', () => {
+  const docForm = document.getElementById('docForm');
+  if (docForm) {
+    docForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      // ★ 利用剛剛埋好的 data-key，精準抓出畫面上輸入的值
+      const wardInput = document.querySelector('input[data-key="病房床號"]');
+      const chartInput = document.querySelector('input[data-key="病歷號"]');
+
+      const payload = {
+        type: document.getElementById('docTypeSelect').value,
+        ward: wardInput ? wardInput.value.trim() : '',
+        chartNo: chartInput ? chartInput.value.trim() : '',
+        sendNote: document.getElementById('docNote').value.trim(),
+        senderName: sessionStorage.getItem('transName')
+      };
+
+      const btn = document.getElementById('btnSubmitDoc');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>傳送中...';
+
+      // 呼叫 API 總機：寫入 SharePoint
+      const res = await callGAS('submitDocTransfer', payload);
+
+      if (res.success) {
+        Swal.fire({ icon: 'success', title: '送件成功', text: `系統單號: ${res.signId}`, timer: 2000 });
+        docForm.reset();
+        document.getElementById('dynamicFieldsContainer').innerHTML = '<div class="text-muted text-center py-4 fs-5">請先選擇送件類型</div>';
+      } else {
+        Swal.fire('失敗', res.message, 'error');
+      }
+
+      btn.disabled = false;
+      btn.innerHTML = '<i class="bi bi-send-fill me-2"></i>確認送出';
+    });
+  }
+});
 
 function logout() {
   sessionStorage.clear();
