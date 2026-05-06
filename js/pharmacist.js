@@ -13,8 +13,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
   document.getElementById('displayPharma').textContent = `${currentPharmaName} 藥師`;
   
-  const optResult = await callGAS('getPharmaReplyOptions', {});
-  if (optResult.success) replyOptionsData = optResult.data;
+  // 呼叫 API 取得選項
+  const optResult = await callGAS('getPharmaReplyOptions');
+  
+  if (optResult.success) {
+    // ★ 加上 map 幫忙把 SharePoint JSON 裡面的選項名稱抽成單純的陣列
+    replyOptionsData = optResult.data.map(opt => opt.Title || opt['送件類型名稱']);
+  }
   
   refreshPharmaDocs();
 });
