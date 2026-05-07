@@ -39,8 +39,15 @@ async function refreshPharmaDocs() {
   if (!result.success) return;
 
   const todayStr = new Date().toISOString().split('T')[0];
-  const pendingData = result.data.filter(item => !item.IsReceived && !item.IsClosed);
-  const completedData = result.data.filter(item => item.IsReceived && item.ReceiveTime && item.ReceiveTime.startsWith(todayStr));
+// 1. 待收單：依據「送件時間」從新到舊排序
+  const pendingData = result.data
+    .filter(item => !item.IsReceived && !item.IsClosed)
+    .sort((a, b) => new Date(b.SendTime) - new Date(a.SendTime));
+
+  // 2. 今日已收單：依據「收單時間」從新到舊排序
+  const completedData = result.data
+    .filter(item => item.IsReceived && item.ReceiveTime && item.ReceiveTime.startsWith(todayStr))
+    .sort((a, b) => new Date(b.ReceiveTime) - new Date(a.ReceiveTime));
 
   countBadge.textContent = pendingData.length;
 
