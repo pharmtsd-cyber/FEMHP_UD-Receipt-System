@@ -111,6 +111,8 @@
 
 // === 主管自行變更共同密碼 ===
     async function changeSharedPassword() {
+      const adminName = document.getElementById('displayAdminName').textContent; // ★ 抓取目前登入的主管名字
+
       const { value: newPwd } = await Swal.fire({
         title: '變更共同密碼',
         input: 'text',
@@ -123,12 +125,17 @@
 
       if (newPwd && newPwd.trim() !== '') {
         Toast.fire({ icon: 'info', title: '背景更新中...', timer: 3000 });
-        const res = await callGAS('updateSharedPassword', { newPassword: newPwd.trim() });
+        
+        // ★ 直接傳送參數，不包雙層 payload
+        const res = await callGAS('updateSharedPassword', { 
+          newPassword: newPwd.trim(),
+          adminName: adminName 
+        });
         
         if (res.success) {
           Toast.fire({ icon: 'success', title: '共同密碼已更新！' });
         } else {
-          Swal.fire('失敗', res.message, 'error');
+          Swal.fire('失敗', res.message || '更新失敗', 'error');
         }
       }
     }
