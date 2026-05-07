@@ -24,8 +24,11 @@
               <p class="text-muted fs-5">請輸入主管專用編號</p>
             </div>
             <form id="adminLoginForm">
+              <div class="mb-3">
+                <input type="text" class="form-control text-center fw-bold" style="font-size: 1.5rem; padding: 10px;" id="adminLoginId" required autofocus placeholder="主管員編">
+              </div>
               <div class="mb-4">
-                <input type="text" class="form-control text-center fw-bold" style="font-size: 2rem; padding: 10px;" id="adminLoginId" required autofocus placeholder="員工編號">
+                <input type="password" class="form-control text-center fw-bold" style="font-size: 1.5rem; padding: 10px;" id="adminLoginPwd" required placeholder="請輸入共同密碼">
               </div>
               <button type="submit" class="btn btn-primary w-100 fw-bold" style="font-size: 1.5rem; padding: 12px;">登 入</button>
             </form>
@@ -84,27 +87,29 @@
     // 共用無感提示
     const Toast = Swal.mixin({ toast: true, position: 'top-end', showConfirmButton: false, timer: 2500, timerProgressBar: true });
 
-    // === 登入邏輯 ===
+
+// === 登入邏輯 ===
     document.getElementById('adminLoginForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       const id = document.getElementById('adminLoginId').value.trim().toUpperCase();
-      if(!id) return;
+      const pwd = document.getElementById('adminLoginPwd').value.trim(); // 抓取密碼
+      if(!id || !pwd) return;
 
       Toast.fire({ icon: 'info', title: '驗證權限中...', timer: 5000 });
-      const result = await callGAS('adminLogin', { staffId: id });
+      // ★ 把員編跟密碼一起包裝送給 adminLogin
+      const result = await callGAS('adminLogin', { staffId: id, password: pwd });
 
       if (result.success) {
         Toast.fire({ icon: 'success', title: `歡迎主管 ${result.name}` });
         document.getElementById('displayAdminName').textContent = result.name;
         
-        // 切換畫面
         document.getElementById('loginSection').style.display = 'none';
         document.getElementById('dashboardSection').style.display = 'block';
         
-        loadStaffList(); // 載入名單
+        loadStaffList(); 
       } else {
-        Swal.fire('拒絕存取', result.message, 'error');
-        document.getElementById('adminLoginId').value = '';
+        Swal.fire('拒絕存取', result.message || '員編或密碼錯誤', 'error');
+        document.getElementById('adminLoginPwd').value = ''; // 清空密碼框
       }
     });
 
