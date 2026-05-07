@@ -1,5 +1,8 @@
+// js/transport.js
+let globalDocConfigs = [];
+
 // ==========================================
-// 音效模組 (保持不變)
+// 音效模組
 // ==========================================
 function playSuccessSound() {
   const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -35,45 +38,41 @@ function playErrorSound() {
 }
 
 // ==========================================
-// 主邏輯控制塊
+// 主邏輯控制塊 (已將所有的 DOMContentLoaded 完美合併)
 // ==========================================
 document.addEventListener('DOMContentLoaded', async () => {
-  // 1. 權限檢查 (統一檢查 sessionStorage)
+  // 1. 權限檢查
   const transId = sessionStorage.getItem('transId');
   const transName = sessionStorage.getItem('transName');
 
   if (!transId || !transName) {
     Swal.fire('未授權', '請先登入', 'warning').then(() => {
-      window.location.href = 'transport_login.html'; //
+      window.location.href = 'transport_login.html'; 
     });
     return;
   }
-
-  // 顯示當前登入者
   document.getElementById('displayUser').textContent = `${transName} (${transId})`;
 
-  // 設定今日日期
+  // 2. 設定今日日期
   const today = new Date().toISOString().split('T')[0];
   const medDateInput = document.getElementById('medDate');
   if(medDateInput) medDateInput.value = today;
 
-  // 2. 初始化選單 (自動執行第三層 action: getConfigData)
+  // 3. 初始化文件選單與清單
   if(document.getElementById('docTypeSelect')) {
     await loadDocConfig();
+    loadTodayDocs();
   }
 
-  // 3. 條碼輸入邏輯
+  // 4. 出院帶藥條碼輸入邏輯
   const barcodeInput = document.getElementById('barcodeInput');
-  const cardContainer = document.getElementById('cardContainer');
   const totalCountSpan = document.getElementById('totalCount');
   const scannedItems = new Set();
   
   if(barcodeInput) {
     barcodeInput.focus();
-    
-    // 全域點擊自動聚焦輸入框
     document.body.addEventListener('click', (e) => {
-      if (e.target.tagName !== 'BUTTON' && !e.target.classList.contains('nav-link')) {
+      if (e.target.tagName !== 'BUTTON' && !e.target.classList.contains('nav-link') && e.target.tagName !== 'INPUT' && e.target.tagName !== 'SELECT') {
          barcodeInput.focus();
       }
     });
@@ -84,7 +83,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         const barcodeValue = barcodeInput.value.trim();
         if (!barcodeValue) return;
 
-        // 條碼解析
         const parts = barcodeValue.split(';');
         if (parts.length < 5 || !parts[2] || !parts[2].startsWith('8')) {
           playErrorSound(); 
@@ -103,10 +101,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const isNewItem = !scannedItems.has(itemKey);
         const cardId = 'card_' + Date.now();
 
-        // 建立待命卡片
-        const dataForCard = {
-          chartNo, dispenseNo, rxDate, staffName: transName, type: '傳送'
-        };
+        const dataForCard = { chartNo, dispenseNo, rxDate, staffName: transName, type: '傳送' };
         
         if (isNewItem) {
           scannedItems.add(itemKey);
@@ -115,11 +110,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         } else {
           addCardToUI(dataForCard, cardId, true, true); 
         }
-        
         barcodeInput.value = '';
 
-        // 【核心修正】：發送到 Switch 的案例 1 (logDischargeMeds)
-        // 我們直接傳送物件，config.js 會幫我們包裝好 payload
         const result = await callGAS('logDischargeMeds', {
           date: document.getElementById('medDate').value,
           barcode: barcodeValue,
@@ -146,10 +138,91 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     });
   }
+
+  // 5. 監聽文件類型下拉選單 (動態長出欄位)
+  const docTypeSelect = document.getElementById('docTypeSelect');
+  const container = document.getElementById('dynamicFieldsContainer');
+  if (docTypeSelect && container) {
+    docTypeSelect.addEventListener('change', (e) => {
+      const selectedType = e.target.value;
+      container.innerHTML = '';
+      if (!selectedType) {
+        container.innerHTML = '<div class="text-muted text-center py-4 fs-5">請先選擇送件類型</div>';
+        return;
+      }
+      const config = globalDocConfigs.find(c => (c['送件類型名稱'] || c.Title) === selectedType);
+      if (!config) return;
+
+      let html = '';
+      const excludeKeys = ['Title', '送件類型名稱'];
+      Object.keys(config).forEach(key => {
+        if (!excludeKeys.includes(key)) {
+          const requirement = config[key]; 
+          if (requirement !== '隱藏') {
+            const isRequired = requirement === '必填' ? 'required' : '';
+            const star = requirement === '必填' ? '<span class="text-danger">*</span>' : '<span class="text-muted fs-6">(選填)</span>';
+            html += `
+              <div class="mb-3 text-start">
+                <label class="form-label fw-bold fs-5">${key} ${star}</label>
+                <input type="text" class="form-control form-control-lg dynamic-input" data-key="${key}" placeholder="請輸入${key}" ${isRequired}>
+              </div>
+            `;
+          }
+        }
+      });
+      if (html === '') html = '<div class="text-success text-center py-3 fw-bold"><i class="bi bi-check-circle me-2"></i>此文件不需填寫額外資料，請直接送出</div>';
+      container.innerHTML = html;
+    });
+  }
+
+  // 6. 攔截表單送出 (抓取最新四個欄位)
+  const docForm = document.getElementById('docForm');
+  if (docForm) {
+    docForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const wardInput = document.querySelector('input[data-key="病房床號"]');
+      const chartInput = document.querySelector('input[data-key="病歷號"]');
+      const qtyInput = document.querySelector('input[data-key="數量/張數"]');
+      const pickupInput = document.querySelector('input[data-key="領藥號"]');
+
+      const payload = {
+        type: document.getElementById('docTypeSelect').value,
+        ward: wardInput ? wardInput.value.trim() : '',
+        chartNo: chartInput ? chartInput.value.trim() : '',
+        quantity: qtyInput ? qtyInput.value.trim() : '',
+        pickupNo: pickupInput ? pickupInput.value.trim() : '',
+        sendNote: document.getElementById('docNote').value.trim(),
+        senderName: sessionStorage.getItem('transName')
+      };
+
+      const btn = document.getElementById('btnSubmitDoc');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>傳送中...';
+
+      const res = await callGAS('submitDocTransfer', payload);
+
+      if (res.success) {
+        Swal.fire({ icon: 'success', title: '送件成功', text: `系統單號: ${res.signId}`, timer: 2000 });
+        docForm.reset();
+        document.getElementById('dynamicFieldsContainer').innerHTML = '<div class="text-muted text-center py-4 fs-5">請先選擇送件類型</div>';
+        loadTodayDocs(); 
+      } else {
+        Swal.fire('失敗', res.message, 'error');
+      }
+      btn.disabled = false;
+      btn.innerHTML = '<i class="bi bi-send-fill me-2"></i>確認送出';
+    });
+  }
+
+  // 7. 綁定重整按鈕與頁籤切換
+  const btnRefreshDoc = document.getElementById('btnRefreshDoc');
+  if (btnRefreshDoc) btnRefreshDoc.addEventListener('click', loadTodayDocs);
+  const docTab = document.getElementById('doc-tab');
+  if (docTab) docTab.addEventListener('shown.bs.tab', loadTodayDocs);
 });
 
 // ==========================================
-// 輔助函數：渲染卡片 (保持不變)
+// 各項獨立輔助函數
 // ==========================================
 function addCardToUI(data, cardId, isPending, isDuplicate = false) {
   const container = document.getElementById('cardContainer');
@@ -176,27 +249,17 @@ function addCardToUI(data, cardId, isPending, isDuplicate = false) {
   container.insertBefore(card, container.firstChild);
 }
 
-// ==========================================
-// 輔助函數：取得選單 (Switch 案例 3)[cite: 1]
-// ==========================================
-// 1. 宣告全域變數，用來記住所有文件類型的欄位設定
-let globalDocConfigs = [];
-
-// 2. 覆寫原本的 loadDocConfig
 async function loadDocConfig() {
   const select = document.getElementById('docTypeSelect');
   if(!select) return;
   select.innerHTML = '<option value="">資料載入中...</option>';
-
   try {
     const response = await callGAS('getConfigData'); 
     if (response.success && response.data) {
-      globalDocConfigs = response.data; // ★ 把後端攤平的 JSON 存起來
-
+      globalDocConfigs = response.data; 
       select.innerHTML = '<option value="">請選擇類型...</option>';
       response.data.forEach(item => {
           const opt = document.createElement('option');
-          // 以「送件類型名稱」或「Title」作為選項值
           const val = item['送件類型名稱'] || item.Title;
           opt.value = val;
           opt.textContent = val;
@@ -210,107 +273,6 @@ async function loadDocConfig() {
   }
 }
 
-// 3. 監聽下拉選單切換，動態渲染欄位
-document.addEventListener('DOMContentLoaded', () => {
-  const docTypeSelect = document.getElementById('docTypeSelect');
-  const container = document.getElementById('dynamicFieldsContainer');
-
-  if (docTypeSelect && container) {
-    docTypeSelect.addEventListener('change', (e) => {
-      const selectedType = e.target.value;
-      container.innerHTML = '';
-
-      if (!selectedType) {
-        container.innerHTML = '<div class="text-muted text-center py-4 fs-5">請先選擇送件類型</div>';
-        return;
-      }
-
-      // 從剛剛存起來的變數中，找到使用者選的那個設定檔
-      const config = globalDocConfigs.find(c => (c['送件類型名稱'] || c.Title) === selectedType);
-      if (!config) return;
-
-      let html = '';
-      // 這些是系統用的屬性，不需要變成輸入框
-      const excludeKeys = ['Title', '送件類型名稱'];
-
-      // 掃描 JSON 裡面的每一個屬性 (例如：病房床號、病歷號)
-      Object.keys(config).forEach(key => {
-        if (!excludeKeys.includes(key)) {
-          const requirement = config[key]; // 會得到 "必填", "選填", "隱藏"
-
-          if (requirement !== '隱藏') {
-            const isRequired = requirement === '必填' ? 'required' : '';
-            const star = requirement === '必填' ? '<span class="text-danger">*</span>' : '<span class="text-muted fs-6">(選填)</span>';
-
-            // ★ 加上 data-key，方便我們送出表單時抓取資料
-            html += `
-              <div class="mb-3 text-start">
-                <label class="form-label fw-bold fs-5">${key} ${star}</label>
-                <input type="text" class="form-control form-control-lg dynamic-input" data-key="${key}" placeholder="請輸入${key}" ${isRequired}>
-              </div>
-            `;
-          }
-        }
-      });
-
-      // 如果完全沒有設定欄位，或是都設為隱藏
-      if (html === '') {
-        html = '<div class="text-success text-center py-3 fw-bold"><i class="bi bi-check-circle me-2"></i>此文件不需填寫額外資料，請直接送出</div>';
-      }
-
-      container.innerHTML = html;
-    });
-  }
-});
-
-// 4. 攔截表單送出，將資料打包給 API 總機
-document.addEventListener('DOMContentLoaded', () => {
-  const docForm = document.getElementById('docForm');
-  if (docForm) {
-    docForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-
-      const wardInput = document.querySelector('input[data-key="病房床號"]');
-      const chartInput = document.querySelector('input[data-key="病歷號"]');
-      const qtyInput = document.querySelector('input[data-key="數量/張數"]');
-      const pickupInput = document.querySelector('input[data-key="領藥號"]');
-
-      const payload = {
-        type: document.getElementById('docTypeSelect').value,
-        ward: wardInput ? wardInput.value.trim() : '',
-        chartNo: chartInput ? chartInput.value.trim() : '',
-        quantity: qtyInput ? qtyInput.value.trim() : '',
-        pickupNo: pickupInput ? pickupInput.value.trim() : '',
-        sendNote: document.getElementById('docNote').value.trim(),
-        senderName: sessionStorage.getItem('transName')
-      };
-
-      const btn = document.getElementById('btnSubmitDoc');
-      btn.disabled = true;
-      btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>傳送中...';
-
-      // 呼叫 API 總機：寫入 SharePoint
-      const res = await callGAS('submitDocTransfer', payload);
-
-      if (res.success) {
-        Swal.fire({ icon: 'success', title: '送件成功', text: `系統單號: ${res.signId}`, timer: 2000 });
-        docForm.reset();
-        document.getElementById('dynamicFieldsContainer').innerHTML = '<div class="text-muted text-center py-4 fs-5">請先選擇送件類型</div>';
-        
-        // ★ 加上這一行，送出後自動刷新右邊的卡片列表！
-        loadTodayDocs(); 
-        
-      } else {
-        Swal.fire('失敗', res.message, 'error');
-      }
-
-      btn.disabled = false;
-      btn.innerHTML = '<i class="bi bi-send-fill me-2"></i>確認送出';
-    });
-  }
-});
-
-// === 傳送端：載入今日送件紀錄 ===
 async function loadTodayDocs() {
   const container = document.getElementById('docRecordContainer');
   const btn = document.getElementById('btnRefreshDoc');
@@ -329,14 +291,12 @@ async function loadTodayDocs() {
       container.innerHTML = '<div class="text-muted text-center py-5 fs-5">今日尚無未結案的紀錄</div>';
     } else {
       container.innerHTML = res.data.map(item => {
-        // ★ 動態資訊顯示邏輯：有填才顯示，並加上顏色區分
         let details = [];
         if (item.ward) details.push(`病房: <span class="fw-bold text-dark">${item.ward}</span>`);
         if (item.chartNo) details.push(`病歷: <span class="fw-bold text-dark">${item.chartNo}</span>`);
         if (item.quantity) details.push(`數量: <span class="text-danger fw-bold">${item.quantity}</span>`);
         if (item.pickupNo) details.push(`領藥號: <span class="text-success fw-bold">${item.pickupNo}</span>`);
 
-        // 準備修改按鈕需要的參數 (確保順序與 editSenderDoc 一致)
         const args = `'${item.signId}', '${item.type}', '${item.ward || ''}', '${item.chartNo || ''}', '${item.quantity || ''}', '${item.pickupNo || ''}', '${item.sendNote || ''}'`;
 
         return `
@@ -374,27 +334,6 @@ async function loadTodayDocs() {
   }
 }
 
-// 6. 綁定「重整按鈕」與「頁籤切換」事件
-document.addEventListener('DOMContentLoaded', () => {
-  // 綁定重整按鈕
-  const btnRefreshDoc = document.getElementById('btnRefreshDoc');
-  if (btnRefreshDoc) {
-    btnRefreshDoc.addEventListener('click', loadTodayDocs);
-  }
-  
-  // 當點擊「送文件給藥局」這個頁籤時，自動載入最新資料
-  const docTab = document.getElementById('doc-tab');
-  if (docTab) {
-    docTab.addEventListener('shown.bs.tab', loadTodayDocs);
-  }
-});
-
-function logout() {
-  sessionStorage.clear();
-  window.location.href = 'index.html';
-}
-
-// === 傳送人員在藥師收單前修改資料 ===
 async function editSenderDoc(signId, currentType, currentWard, currentChartNo, currentQty, currentPickup, currentSendNote) {
   const safeWard = (!currentWard || currentWard === 'undefined' || currentWard === 'null') ? '' : currentWard;
   const safeChartNo = (!currentChartNo || currentChartNo === 'undefined' || currentChartNo === 'null') ? '' : currentChartNo;
@@ -402,7 +341,6 @@ async function editSenderDoc(signId, currentType, currentWard, currentChartNo, c
   const safePickup = (!currentPickup || currentPickup === 'undefined' || currentPickup === 'null') ? '' : currentPickup;
   const safeSendNote = (!currentSendNote || currentSendNote === 'undefined' || currentSendNote === 'null') ? '' : currentSendNote;
 
-  // 動態產生文件類型下拉選單
   const typeOptions = globalDocConfigs.map(c => {
     const val = c['送件類型名稱'] || c.Title;
     return `<option value="${val}" ${val === currentType ? 'selected' : ''}>${val}</option>`;
@@ -426,7 +364,6 @@ async function editSenderDoc(signId, currentType, currentWard, currentChartNo, c
     confirmButtonText: '確認修改',
     preConfirm: () => {
       const wardVal = document.getElementById('swal-ward').value.trim();
-      // ★ 防呆條件：病房床號若有填寫，必須是 6 碼英數字
       if (wardVal !== '' && !/^[A-Za-z0-9]{6}$/.test(wardVal)) {
         Swal.showValidationMessage('病房床號格式錯誤，必須是 6 位數的英文與數字組合');
         return false;
@@ -449,4 +386,9 @@ async function editSenderDoc(signId, currentType, currentWard, currentChartNo, c
       loadTodayDocs(); 
     }
   }
+}
+
+function logout() {
+  sessionStorage.clear();
+  window.location.href = 'index.html';
 }
