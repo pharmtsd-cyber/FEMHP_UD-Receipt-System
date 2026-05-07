@@ -6,7 +6,6 @@
   <title>住院藥局收發紀錄查詢平台</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="theme.css">
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 </head>
 <body class="bg-light">
@@ -50,27 +49,15 @@
         <div class="tab-content" id="recordTabContent">
           
           <div class="tab-pane fade" id="dashboard" role="tabpanel">
-            <div class="row g-4 mt-2">
-              <div class="col-md-4">
-                <div class="card shadow-sm h-100 border-0 border-top border-4 border-warning">
-                  <div class="card-header bg-white fw-bold fs-5 text-dark">文件處理狀態分佈</div>
-                  <div class="card-body" style="position: relative; height: 350px;">
-                    <canvas id="statusChart"></canvas>
-                  </div>
+            <div class="card shadow-sm border-0 border-top border-4 border-warning mt-2">
+              <div class="card-body p-0" style="height: 850px;"> <iframe title="住院藥局收發統計" width="100%" height="100%" 
+                  src="https://app.powerbi.com/reportEmbed?reportId=您的ID..." 
+                  frameborder="0" allowFullScreen="true">
+                </iframe>
                 </div>
-              </div>
-              <div class="col-md-8">
-                <div class="card shadow-sm h-100 border-0 border-top border-4 border-primary">
-                  <div class="card-header bg-white fw-bold fs-5 text-dark">各類文件送件數量統計</div>
-                  <div class="card-body" style="position: relative; height: 350px;">
-                    <canvas id="typeChart"></canvas>
-                  </div>
-                </div>
-              </div>
             </div>
           </div>
           
-          <!-- 帶藥區 -->
           <div class="tab-pane fade show active" id="med" role="tabpanel">
             <div class="filter-box row g-3">
               <div class="col-md-4">
@@ -91,10 +78,8 @@
             </div>
           </div>
 
-          <!-- 文件區 -->
           <div class="tab-pane fade" id="doc" role="tabpanel">
             <div class="filter-box row g-3">
-              <!-- ★ 改為下拉式選單 -->
               <div class="col-md-3">
                 <select id="filterDocType" class="form-select form-select-lg border-primary">
                   <option value="">📁 所有文件類型</option>
@@ -136,8 +121,7 @@
   <script>
     let allMedsData = [];
     let allDocsData = [];
-    let statusChartInstance = null;
-    let typeChartInstance = null;
+    // 已經移除 Chart.js 的圖表變數
 
     document.addEventListener('DOMContentLoaded', () => {
       const today = new Date().toISOString().split('T')[0];
@@ -167,7 +151,6 @@
 
       const payload = { startDate: start, endDate: end };
 
-      // ★ 修正：移除雙重 payload 封裝
       const [medRes, docRes] = await Promise.all([
         callGAS('getDailyRecords', payload),
         callGAS('getPublicDocRecords', payload)
@@ -179,7 +162,7 @@
       populateDocTypes();
       renderMeds();
       renderDocs();
-      renderDashboard();
+      // 已經移除呼叫 renderDashboard()
     }
 
     function populateDocTypes() {
@@ -352,75 +335,6 @@
         </tr>
       `}).join('');
     }
-
-// === 繪製統計面板 ===
-    function renderDashboard() {
-      // 1. 準備統計變數
-      let pending = 0, closed = 0, returned = 0;
-      const typeCounts = {};
-
-      // 2. 統計文件資料
-      allDocsData.forEach(r => {
-        // 狀態統計 (依據 IsClosed 與 ReplyOption 判斷)
-        if (r.IsClosed || r.IsReceived) {
-            if (r.ReplyOption === '收下不歸還') closed++;
-            else returned++;
-        } else {
-            pending++;
-        }
-
-        // 類型統計 (例如：出院帶藥、會辦單等)
-        const type = r.DocType || '未分類';
-        typeCounts[type] = (typeCounts[type] || 0) + 1;
-      });
-
-      // 3. 銷毀舊圖表 (防止滑鼠移上去時圖表閃爍或出現舊數據)
-      if (statusChartInstance) statusChartInstance.destroy();
-      if (typeChartInstance) typeChartInstance.destroy();
-
-      // 4. 畫出「文件處理狀態圓餅圖」
-      const ctxStatus = document.getElementById('statusChart').getContext('2d');
-      statusChartInstance = new Chart(ctxStatus, {
-        type: 'doughnut',
-        data: {
-          labels: ['待藥師收單', '已結案', '已領回 / 退件'],
-          datasets: [{
-            data: [pending, closed, returned],
-            backgroundColor: ['#ffc107', '#198754', '#dc3545'],
-            borderWidth: 2
-          }]
-        },
-        options: { 
-          responsive: true, 
-          maintainAspectRatio: false,
-          plugins: { legend: { position: 'bottom' } }
-        }
-      });
-
-      // 5. 畫出「文件類型數量統計圖」
-      const types = Object.keys(typeCounts);
-      const counts = Object.values(typeCounts);
-      const ctxType = document.getElementById('typeChart').getContext('2d');
-      typeChartInstance = new Chart(ctxType, {
-        type: 'bar',
-        data: {
-          labels: types,
-          datasets: [{
-            label: '總件數',
-            data: counts,
-            backgroundColor: '#0d6efd',
-            borderRadius: 5
-          }]
-        },
-        options: { 
-          responsive: true, 
-          maintainAspectRatio: false,
-          plugins: { legend: { display: false } },
-          scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
-        }
-      });
-    }
-    
   </script>
 </body>
 </html>
