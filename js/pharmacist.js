@@ -11,12 +11,16 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
   document.getElementById('displayPharma').textContent = `${currentPharmaName} 藥師`;
   
-  // 呼叫 API 取得選項
+  // 呼叫 API 取得處置選項
   const optResult = await callGAS('getPharmaReplyOptions');
-  
   if (optResult.success) {
-    // ★ 加上 map 幫忙把 SharePoint JSON 裡面的選項名稱抽成單純的陣列
     replyOptionsData = optResult.data.map(opt => opt.Title || opt['送件類型名稱']);
+  }
+
+  // ★ 呼叫 API 取得文件類型 (供修改視窗的下拉選單使用)
+  const typeResult = await callGAS('getConfigData');
+  if (typeResult.success) {
+    docTypeOptionsData = typeResult.data.map(opt => opt['送件類型名稱'] || opt.Title);
   }
   
   refreshPharmaDocs();
@@ -28,97 +32,91 @@ async function refreshPharmaDocs() {
   const completedBox = document.getElementById('completedContainer');
   const countBadge = document.getElementById('pendingDocCount');
 
-  pendingBox.innerHTML = '<div class="text-center py-3">讀取中...</div>';
-  completedBox.innerHTML = '<div class="text-center py-3">讀取中...</div>';
+  pendingBox.innerHTML = '<div class="text-center py-3">載入中...</div>';
+  completedBox.innerHTML = '<div class="text-center py-3">載入中...</div>';
 
   const result = await callGAS('getPharmaDocRecords');
-
-  if (result.success) {
-    // 取得今天的日期字串 (用來過濾今日已收單)
-    const todayStr = new Date().toISOString().split('T')[0];
-
-    // ★ 核心分類魔法：將 SharePoint 傳來的資料分為「待收單」與「今日已完成」
-    const pendingData = result.data.filter(item => !item.IsReceived && !item.IsClosed);
-    const completedData = result.data.filter(item => item.IsReceived && item.ReceiveTime && item.ReceiveTime.startsWith(todayStr));
-
-    // 更新未處理徽章數字
-    countBadge.textContent = pendingData.length; 
-    
-    // === 左側：待收單 ===
-    if (pendingData.length === 0) {
-      pendingBox.innerHTML = '<div class="text-muted text-center py-4">無待處理單據</div>';
-    } else {
-      pendingBox.innerHTML = pendingData.map(item => {
-        // 組合詳細資訊 (取代以前 GAS 的動態 HTML)
-        let detailsHtml = `病房床號: <span class="text-primary fw-bold">${item.Ward || '-'}</span> | 病歷號: <span class="text-primary fw-bold">${item.ChartNo || '-'}</span>`;
-        let sendTimeStr = item.SendTime ? new Date(item.SendTime).toLocaleTimeString('zh-TW', {hour: '2-digit', minute:'2-digit'}) : '';
-
-        return `
-        <div class="card mb-2 shadow-sm border-warning border-start border-4">
-          <div class="card-body p-2">
-            <div class="mb-1"><strong class="text-dark fs-5">${item.DocType}</strong></div>
-            <div class="fs-6 mb-2">
-              ${detailsHtml}
-              <!-- 暫時隱藏修改按鈕，後續實作 -->
-            </div>
-            ${item.SendNote ? `<div class="text-danger small mb-2 bg-light p-1 rounded"><i class="bi bi-exclamation-triangle-fill me-1"></i>送件備註: ${item.SendNote}</div>` : ''}
-            
-            <div class="d-flex justify-content-between align-items-center mt-2 border-top pt-2">
-              <div class="small text-muted">
-                <i class="bi bi-person-walking"></i> 送件人: <strong class="text-dark">${item.SenderName}</strong>
-                <span class="ms-2">時間: <strong>${sendTimeStr}</strong></span>
-              </div>
-              <button class="btn btn-warning btn-sm fw-bold" onclick="receiveDoc('${item.Title}')">進行收單</button>
-            </div>
-          </div>
-        </div>`;
-      }).join('');
-    }
-
-    // === 右側：已收單 ===
-    if (completedData.length === 0) {
-      completedBox.innerHTML = '<div class="text-muted text-center py-4">今日無收單紀錄</div>';
-    } else {
-      completedBox.innerHTML = completedData.map(item => {
-        let detailsHtml = `病房床號: <span class="text-dark fw-bold">${item.Ward || '-'}</span> | 病歷號: <span class="text-dark fw-bold">${item.ChartNo || '-'}</span>`;
-        let badgeClass = 'bg-danger'; 
-        let borderClass = 'border-primary';
-        
-        if (item.ReplyOption === '收下不歸還') { badgeClass = 'bg-success'; borderClass = 'border-success'; } 
-        else if (item.IsClosed) { badgeClass = 'bg-secondary'; borderClass = 'border-secondary'; }
-
-        let sendTimeStr = item.SendTime ? new Date(item.SendTime).toLocaleTimeString('zh-TW', {hour: '2-digit', minute:'2-digit'}) : '';
-        let receiveTimeStr = item.ReceiveTime ? new Date(item.ReceiveTime).toLocaleTimeString('zh-TW', {hour: '2-digit', minute:'2-digit'}) : '';
-        let returnTimeStr = item.ReturnTime ? new Date(item.ReturnTime).toLocaleTimeString('zh-TW', {hour: '2-digit', minute:'2-digit'}) : '';
-
-        return `
-        <div class="card mb-2 shadow-sm border-start border-4 ${borderClass}">
-          <div class="card-body p-2">
-            <div class="mb-1"><strong class="text-primary fs-5">${item.DocType}</strong></div>
-            <div class="small text-secondary mb-1">${detailsHtml}</div>
-            
-            ${(item.SendNote || item.ReceiveNote) ? `
-            <div class="bg-light p-2 my-2 rounded border small">
-              ${item.SendNote ? `<div class="text-danger mb-1"><i class="bi bi-person-walking me-1"></i>備註: <span class="fw-bold">${item.SendNote}</span></div>` : ''}
-              ${item.ReceiveNote ? `<div class="text-primary"><i class="bi bi-capsule me-1"></i>藥師回覆: <span class="fw-bold">${item.ReceiveNote}</span></div>` : ''}
-            </div>` : ''}
-
-            <div class="d-flex justify-content-between align-items-end mt-2 border-top pt-2">
-              <div class="small text-muted">
-                <div class="mb-1"><i class="bi bi-person-walking me-1"></i>送件: <strong class="text-dark">${item.SenderName}</strong> (${sendTimeStr})</div>
-                <div class="mb-1"><i class="bi bi-capsule me-1"></i>收單: <strong class="text-primary">${item.PharmaName}</strong> (${receiveTimeStr})</div>
-                ${item.ReturnerName ? `<div><i class="bi bi-check2-circle me-1"></i>領回: <strong class="text-success">${item.ReturnerName}</strong> (${returnTimeStr})</div>` : ''}
-              </div>
-              <div class="text-end">
-                <span class="badge ${badgeClass} mb-2 d-block fs-6">${item.IsClosed && item.ReplyOption !== '收下不歸還' ? '已領回' : item.ReplyOption}</span>
-                <button class="btn btn-outline-primary btn-sm py-0 w-100" onclick="editDocInfo('${item.Title}', '${item.ReplyOption}', '${item.ReceiveNote || ''}', '${item.DocType}', '${item.Ward || ''}', '${item.ChartNo || ''}', '${item.SenderName}', '${item.SendNote || ''}')">修改全部資料</button>
-              </div>
-            </div>
-          </div>
-        </div>`;
-      }).join('');
-    }
+  if (!result.success) {
+    pendingBox.innerHTML = '<div class="text-danger text-center py-3">讀取失敗</div>';
+    completedBox.innerHTML = '<div class="text-danger text-center py-3">讀取失敗</div>';
+    return;
   }
+
+  const todayStr = new Date().toISOString().split('T')[0];
+  const pendingData = result.data.filter(item => !item.IsReceived && !item.IsClosed);
+  const completedData = result.data.filter(item => item.IsReceived && item.ReceiveTime && item.ReceiveTime.startsWith(todayStr));
+
+  countBadge.textContent = pendingData.length;
+
+  // ★ 內部渲染函數：集中處理卡片 HTML 生成
+  const renderCard = (item, isPending) => {
+    let detailsArr = [];
+    if (item.Ward) detailsArr.push(`病房: <span class="fw-bold text-dark">${item.Ward}</span>`);
+    if (item.ChartNo) detailsArr.push(`病歷: <span class="fw-bold text-dark">${item.ChartNo}</span>`);
+    if (item.Quantity) detailsArr.push(`數量: <span class="text-danger fw-bold">${item.Quantity}</span>`);
+    if (item.PickupNo) detailsArr.push(`領藥號: <span class="text-success fw-bold">${item.PickupNo}</span>`);
+    
+    let detailsHtml = detailsArr.join(' | ');
+    let sendTimeStr = item.SendTime ? new Date(item.SendTime).toLocaleTimeString('zh-TW', {hour: '2-digit', minute:'2-digit'}) : '';
+    let receiveTimeStr = item.ReceiveTime ? new Date(item.ReceiveTime).toLocaleTimeString('zh-TW', {hour: '2-digit', minute:'2-digit'}) : '';
+    let returnTimeStr = item.ReturnTime ? new Date(item.ReturnTime).toLocaleTimeString('zh-TW', {hour: '2-digit', minute:'2-digit'}) : '';
+    
+    // 準備藥師修改所需的 10 個參數
+    const editArgs = `'${item.Title}', '${item.ReplyOption || ''}', '${item.ReceiveNote || ''}', '${item.DocType}', '${item.Ward || ''}', '${item.ChartNo || ''}', '${item.Quantity || ''}', '${item.PickupNo || ''}', '${item.SenderName}', '${item.SendNote || ''}'`;
+
+    if (isPending) {
+      return `
+      <div class="card mb-2 shadow-sm border-warning border-start border-4">
+        <div class="card-body p-2">
+          <div class="mb-1"><strong class="text-dark fs-5">${item.DocType}</strong></div>
+          <div class="small mb-1 text-secondary">${detailsHtml}</div>
+          
+          ${item.SendNote ? `<div class="bg-light p-1 rounded small text-danger border mb-1"><i class="bi bi-person-walking me-1"></i>傳送備註: ${item.SendNote}</div>` : ''}
+          
+          <div class="d-flex justify-content-between align-items-center mt-2 border-top pt-2">
+            <div class="small text-muted"><i class="bi bi-person-walking"></i> 送件: <strong class="text-dark">${item.SenderName}</strong> (${sendTimeStr})</div>
+            <button class="btn btn-warning btn-sm fw-bold" onclick="receiveDoc('${item.Title}')">進行收單</button>
+          </div>
+        </div>
+      </div>`;
+    } else {
+      let badgeClass = 'bg-danger'; 
+      let borderClass = 'border-primary';
+      if (item.ReplyOption === '收下不歸還') { badgeClass = 'bg-success'; borderClass = 'border-success'; } 
+      else if (item.IsClosed) { badgeClass = 'bg-secondary'; borderClass = 'border-secondary'; }
+
+      return `
+      <div class="card mb-2 shadow-sm border-start border-4 ${borderClass}">
+        <div class="card-body p-2">
+          <div class="d-flex justify-content-between align-items-start">
+            <strong class="fs-5 text-primary">${item.DocType}</strong>
+            <span class="badge ${badgeClass}">${item.IsClosed && item.ReplyOption !== '收下不歸還' ? '已領回' : item.ReplyOption}</span>
+          </div>
+          <div class="small mb-1 text-secondary">${detailsHtml}</div>
+          
+          ${(item.SendNote || item.ReceiveNote) ? `
+          <div class="bg-light p-1 my-1 rounded border small">
+            ${item.SendNote ? `<div class="text-danger mb-1"><i class="bi bi-person-walking me-1"></i>備註: <span class="fw-bold">${item.SendNote}</span></div>` : ''}
+            ${item.ReceiveNote ? `<div class="text-primary"><i class="bi bi-capsule me-1"></i>藥師回覆: <span class="fw-bold">${item.ReceiveNote}</span></div>` : ''}
+          </div>` : ''}
+
+          <div class="d-flex justify-content-between align-items-end mt-2 border-top pt-2">
+            <div class="small text-muted">
+              <div class="mb-1"><i class="bi bi-person-walking me-1"></i>送件: <strong class="text-dark">${item.SenderName}</strong> (${sendTimeStr})</div>
+              <div class="mb-1"><i class="bi bi-capsule me-1"></i>收單: <strong class="text-primary">${item.PharmaName}</strong> (${receiveTimeStr})</div>
+              ${item.ReturnerName ? `<div><i class="bi bi-check2-circle me-1"></i>領回: <strong class="text-success">${item.ReturnerName}</strong> (${returnTimeStr})</div>` : ''}
+            </div>
+            <div class="text-end">
+              <button class="btn btn-outline-primary btn-sm py-0 w-100 mt-2" onclick="editDocInfo(${editArgs})">修改全部資料</button>
+            </div>
+          </div>
+        </div>
+      </div>`;
+    }
+  };
+
+  pendingBox.innerHTML = pendingData.length ? pendingData.map(item => renderCard(item, true)).join('') : '<div class="text-muted text-center py-4">無待處理單據</div>';
+  completedBox.innerHTML = completedData.length ? completedData.map(item => renderCard(item, false)).join('') : '<div class="text-muted text-center py-4">今日無收單紀錄</div>';
 }
 
 // === 藥師修改單據詳細資料 ===
@@ -187,60 +185,7 @@ async function editDocInfo(signId, currentOption, currentNote, currentType, curr
   }
 }
 
-async function editDocInfo(signId, currentOption, currentNote, currentType, currentWard, currentChartNo, currentSender, currentSendNote) {
-  const safeNote = (currentNote === 'undefined' || currentNote === 'null' || !currentNote) ? '' : currentNote;
-  const safeSendNote = (currentSendNote === 'undefined' || currentSendNote === 'null' || !currentSendNote) ? '' : currentSendNote;
-  const safeWard = (currentWard === 'undefined' || currentWard === 'null' || !currentWard) ? '' : currentWard;
-  const safeChartNo = (currentChartNo === 'undefined' || currentChartNo === 'null' || !currentChartNo) ? '' : currentChartNo;
-
-  const optionsHtml = replyOptionsData.map(opt => `<option value="${opt}" ${opt === currentOption ? 'selected' : ''}>${opt}</option>`).join('');
-
-  const { value: formValues } = await Swal.fire({
-    title: '修改單據詳細資料',
-    html: `
-      <div class="row text-start g-2 mb-3 bg-light p-2 rounded">
-        <div class="col-6"><label class="small fw-bold text-muted">文件類型</label><input id="swal-type" class="form-control form-control-sm" value="${currentType}"></div>
-        <div class="col-6"><label class="small fw-bold text-muted">送件人</label><input id="swal-sender" class="form-control form-control-sm" value="${currentSender}"></div>
-        <div class="col-6"><label class="small fw-bold text-muted">病房床號</label><input id="swal-ward" class="form-control form-control-sm" value="${safeWard}"></div>
-        <div class="col-6"><label class="small fw-bold text-muted">病歷號</label><input id="swal-chart" class="form-control form-control-sm" value="${safeChartNo}"></div>
-        <div class="col-12"><label class="small fw-bold text-muted">送件備註</label><input id="swal-sendnote" class="form-control form-control-sm" value="${safeSendNote}"></div>
-      </div>
-      <hr>
-      <div class="text-start mb-2">
-        <label class="small fw-bold text-primary">處置狀態</label>
-        <select id="swal-edit-option" class="form-select">${optionsHtml}</select>
-      </div>
-      <div class="text-start">
-        <label class="small fw-bold text-primary">藥師備註</label>
-        <input id="swal-edit-note" class="form-control" value="${safeNote}">
-      </div>
-    `,
-    showCancelButton: true,
-    confirmButtonText: '確認儲存',
-    width: '500px',
-    preConfirm: () => {
-      return {
-        type: document.getElementById('swal-type').value,
-        ward: document.getElementById('swal-ward').value,
-        chartNo: document.getElementById('swal-chart').value,
-        senderName: document.getElementById('swal-sender').value,
-        sendNote: document.getElementById('swal-sendnote').value,
-        replyOption: document.getElementById('swal-edit-option').value,
-        note: document.getElementById('swal-edit-note').value
-      }
-    }
-  });
-
-  if (formValues) {
-    const res = await callGAS('editDocRecord', { signId: signId, ...formValues });
-    if (res.success) {
-      Swal.fire({ icon: 'success', title: '修改成功', timer: 1500, showConfirmButton: false });
-      refreshPharmaDocs(); 
-    }
-  }
-}
-
-// === 確認收單 (保留下拉選單) ===
+// === 確認收單 ===
 async function receiveDoc(signId) {
   let optionsHtml = replyOptionsData.map(opt => `<option value="${opt}">${opt}</option>`).join('');
   const { value: formValues, isConfirmed } = await Swal.fire({
@@ -264,9 +209,8 @@ async function receiveDoc(signId) {
     }
   });
 
-// === 3. 確認收單 === (修改這部分)
   if (isConfirmed && formValues) {
-    Toast.fire({ icon: 'info', title: '背景收單中...', timer: 3000 }); // ★ 替換原本的轉圈圈
+    Toast.fire({ icon: 'info', title: '背景收單中...', timer: 3000 });
     const payload = { signId, pharmaId: currentPharmaId, pharmaName: currentPharmaName, replyOption: formValues.replyOption, note: formValues.note };
     const res = await callGAS('receiveDocTransfer', payload);
     if (res.success) {
@@ -282,10 +226,8 @@ document.getElementById('btnRefreshPending').addEventListener('click', refreshPh
 function logout() { sessionStorage.removeItem('pharmaId'); sessionStorage.removeItem('pharmaName'); window.location.href = 'index.html'; }
 
 // ==========================================
-// 氣送作業管理模組 (比照傳送端出院帶藥)
+// 氣送作業管理模組
 // ==========================================
-
-// --- 音效模組 ---
 function playSuccessSound() {
   const AudioContext = window.AudioContext || window.webkitAudioContext;
   if (!AudioContext) return;
@@ -329,18 +271,15 @@ document.addEventListener('DOMContentLoaded', () => {
   const pTotalCountSpan = document.getElementById('pneumaticTotalCount');
   const pEmptyState = document.getElementById('pneumaticEmptyState');
   
-  // 使用 Set 防止重複計數 (與傳送端邏輯相同)
   const pScannedItems = new Set();
 
-  // --- 強制焦點控制 ---
-  // 當切換到氣送頁籤時，自動對焦
   const pneumaticTab = document.getElementById('pneumatic-tab');
   if(pneumaticTab) {
     pneumaticTab.addEventListener('shown.bs.tab', () => {
       if(pBarcodeInput) pBarcodeInput.focus();
     });
   }
-  // 在氣送頁籤點擊空白處時，確保游標不會跑掉
+  
   document.body.addEventListener('click', (e) => {
     const activeTab = document.querySelector('.nav-link.active');
     if (activeTab && activeTab.id === 'pneumatic-tab') {
@@ -350,7 +289,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // --- 條碼掃描事件 ---
   if(pBarcodeInput) {
     pBarcodeInput.addEventListener('keypress', async (e) => {
       if (e.key === 'Enter') {
@@ -358,7 +296,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const barcodeValue = pBarcodeInput.value.trim();
         if (!barcodeValue) return;
 
-        // 驗證條碼格式
         const parts = barcodeValue.split(';');
         if (parts.length < 5 || !parts[2] || !parts[2].startsWith('8')) {
           playErrorSound(); 
@@ -374,14 +311,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const dateMatch = rawDateStr.match(/[A-Za-z](\d{8})/);
         const rxDate = dateMatch ? dateMatch[1] : '';
 
-        // 檢查是否為重複刷入
         const itemKey = `${dispenseNo}-${rxDate}`;
         const isNewItem = !pScannedItems.has(itemKey);
 
         const payload = {
           date: pDateInput.value,
           barcode: barcodeValue,
-          type: '氣送', // ★ 關鍵差異：送去 GAS 時自動寫為「氣送」
+          type: '氣送', 
           staffId: currentPharmaId,
           staffName: currentPharmaName,
           chartNo: chartNo,
@@ -391,7 +327,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const cardId = 'p_card_' + Date.now();
         
-        // 渲染畫面卡片
         if (isNewItem) {
           pScannedItems.add(itemKey);
           addPneumaticCardToUI(payload, cardId, true); 
@@ -403,8 +338,7 @@ document.addEventListener('DOMContentLoaded', () => {
         pBarcodeInput.value = '';
         pBarcodeInput.focus();
 
-        // 呼叫 GAS 寫入同一張 Discharge_Meds_Log 表
-        const result = await callGAS('logDischargeMeds', { payload: payload });
+        const result = await callGAS('logDischargeMeds', payload); // ★ 修正不再包雙層
         
         if (result.success) {
           playSuccessSound(); 
@@ -422,7 +356,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // --- 渲染卡片 UI 函數 ---
   function addPneumaticCardToUI(data, cardId, isPending, isDuplicate = false) {
     if (pEmptyState) pEmptyState.style.display = 'none';
     const card = document.createElement('div');
@@ -449,7 +382,6 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
-// 當藥師點擊「文件收單作業」頁籤時，自動抓取最新資料
 const docReceiveTab = document.getElementById('doc-receive-tab');
 if(docReceiveTab) {
   docReceiveTab.addEventListener('shown.bs.tab', refreshPharmaDocs);
