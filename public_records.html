@@ -71,14 +71,7 @@
             <div class="table-responsive">
               <table class="table table-hover align-middle fs-5 border">
                 <thead class="table-success">
-                  <tr>
-                    <th>日期</th>
-                    <th>領藥號</th>
-                    <th>病歷號</th>
-                    <th>傳送方式</th> <th>最新進度 (人員與時間)</th>
-                    <th>總筆數</th>
-                    <th>操作</th>
-                  </tr>
+                  <tr><th>日期</th><th>領藥號</th><th>病歷號</th><th>傳送方式</th><th>最新進度 (人員與時間)</th><th>總筆數</th><th>操作</th></tr>
                 </thead>
                 <tbody id="medRecordsBody"></tbody>
               </table>
@@ -217,10 +210,12 @@
         const group = groupedData[dispNo];
         const collapseId = `collapseMed_${index}`;
         const latestRecord = group.records[0];
-        
-        // ★ 修正：精確抓取 TaskType 欄位
+
+        // ★ 顏色區分邏輯 (主表格)
         const latestType = latestRecord.TaskType || '未註記';
-        const typeBadge = latestType === '氣送' ? 'bg-info' : 'bg-secondary';
+        let typeBadge = 'bg-secondary';
+        if (latestType === '氣送') typeBadge = 'bg-info text-dark';
+        else if (latestType !== '未註記') typeBadge = 'bg-warning text-dark';
 
         html += `
           <tr>
@@ -242,22 +237,17 @@
           <tr class="collapse sub-table-row" id="${collapseId}">
             <td colspan="7" class="p-3">
               <table class="table table-sm table-bordered mb-0 bg-white">
-                <thead class="table-light">
-                  <tr>
-                    <th>處方日期</th>
-                    <th>傳送方式</th>
-                    <th>經手人員</th>
-                    <th>刷入時間</th>
-                  </tr>
-                </thead>
+                <thead class="table-light"><tr><th>處方日期</th><th>傳送方式</th><th>經手人員</th><th>刷入時間</th></tr></thead>
                 <tbody>
-                  ${group.records.map(sub => `
-                    <tr>
-                      <td>${sub.rxDate}</td>
-                      <td><span class="badge ${sub.TaskType === '氣送' ? 'bg-info' : 'bg-secondary'}">${sub.TaskType || '未註記'}</span></td>
-                      <td>${sub.staffName}</td>
-                      <td>${sub.time}</td>
-                    </tr>`).join('')}
+                  ${group.records.map(sub => {
+                    // ★ 顏色區分邏輯 (詳細紀錄表格)
+                    const subType = sub.TaskType || '未註記';
+                    let subTypeBadge = 'bg-secondary';
+                    if (subType === '氣送') subTypeBadge = 'bg-info text-dark';
+                    else if (subType !== '未註記') subTypeBadge = 'bg-warning text-dark';
+                    
+                    return `<tr><td>${sub.rxDate}</td><td><span class="badge ${subTypeBadge}">${subType}</span></td><td>${sub.staffName}</td><td>${sub.time}</td></tr>`;
+                  }).join('')}
                 </tbody>
               </table>
             </td>
@@ -324,12 +314,15 @@
             <div class="fw-bold text-secondary mb-1">${dateOnly}</div>
             <span class="badge ${statusBadge} fs-6 d-inline-block mb-1">${statusText}</span>
           </td>
+          
           <td class="fw-bold fs-5 text-dark">${r.DocType || ''}</td>
+          
           <td>
             <div class="mb-2 text-secondary">${detailsArr.join(' | ')}</div>
             ${r.SendNote ? `<div class="bg-light p-1 rounded small text-danger border mb-1"><i class="bi bi-person-walking me-1"></i>傳送備註: ${r.SendNote}</div>` : ''}
             ${r.ReceiveNote ? `<div class="bg-blue-light p-1 rounded small text-primary border mb-1" style="background-color: #e7f1ff;"><i class="bi bi-capsule me-1"></i>藥師回覆: ${r.ReceiveNote}</div>` : ''}
           </td>
+          
           <td>
             <ul class="list-unstyled mb-0 small">
               <li class="mb-1">
