@@ -6,6 +6,7 @@
   <title>住院藥局收發紀錄查詢平台</title>
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
   <link rel="stylesheet" href="theme.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body class="bg-light">
 
@@ -35,14 +36,38 @@
 
         <ul class="nav nav-tabs nav-fill mb-4 fs-4" id="recordTab" role="tablist">
           <li class="nav-item" role="presentation">
-            <button class="nav-link active text-success" id="med-tab" data-bs-toggle="tab" data-bs-target="#med" type="button">📦 出院帶藥 / 氣送紀錄</button>
+            <button class="nav-link active text-success" id="med-tab" data-bs-toggle="tab" data-bs-target="#med" type="button">📦 出院帶藥 / 氣送</button>
           </li>
           <li class="nav-item" role="presentation">
             <button class="nav-link text-primary" id="doc-tab" data-bs-toggle="tab" data-bs-target="#doc" type="button">📄 文件收發紀錄</button>
           </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link text-warning fw-bold" id="dashboard-tab" data-bs-toggle="tab" data-bs-target="#dashboard" type="button">📊 統計面板</button>
+          </li>
         </ul>
 
         <div class="tab-content" id="recordTabContent">
+          
+          <div class="tab-pane fade" id="dashboard" role="tabpanel">
+            <div class="row g-4 mt-2">
+              <div class="col-md-4">
+                <div class="card shadow-sm h-100 border-0 border-top border-4 border-warning">
+                  <div class="card-header bg-white fw-bold fs-5 text-dark">文件處理狀態分佈</div>
+                  <div class="card-body" style="position: relative; height: 350px;">
+                    <canvas id="statusChart"></canvas>
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-8">
+                <div class="card shadow-sm h-100 border-0 border-top border-4 border-primary">
+                  <div class="card-header bg-white fw-bold fs-5 text-dark">各類文件送件數量統計</div>
+                  <div class="card-body" style="position: relative; height: 350px;">
+                    <canvas id="typeChart"></canvas>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
           
           <!-- 帶藥區 -->
           <div class="tab-pane fade show active" id="med" role="tabpanel">
