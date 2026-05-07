@@ -255,11 +255,18 @@
       }
     }
 
-    function logoutAdmin() {
+function logoutAdmin() {
+      // 1. 清空員編與密碼輸入框的值
       document.getElementById('adminLoginId').value = '';
+      document.getElementById('adminLoginPwd').value = ''; 
+      
+      // 2. 切換畫面回登入區塊
       document.getElementById('dashboardSection').style.display = 'none';
       document.getElementById('loginSection').style.display = 'flex';
+      
+      // 3. 提示訊息並將游標聚焦回員編框，方便下一次登入
       Toast.fire({ icon: 'success', title: '已安全登出' });
+      document.getElementById('adminLoginId').focus();
     }
   </script>
 </body>
