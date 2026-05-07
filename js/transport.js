@@ -270,14 +270,17 @@ document.addEventListener('DOMContentLoaded', () => {
     docForm.addEventListener('submit', async (e) => {
       e.preventDefault();
 
-      // ★ 利用剛剛埋好的 data-key，精準抓出畫面上輸入的值
       const wardInput = document.querySelector('input[data-key="病房床號"]');
       const chartInput = document.querySelector('input[data-key="病歷號"]');
+      const qtyInput = document.querySelector('input[data-key="數量/張數"]');
+      const pickupInput = document.querySelector('input[data-key="領藥號"]');
 
       const payload = {
         type: document.getElementById('docTypeSelect').value,
         ward: wardInput ? wardInput.value.trim() : '',
         chartNo: chartInput ? chartInput.value.trim() : '',
+        quantity: qtyInput ? qtyInput.value.trim() : '',
+        pickupNo: pickupInput ? pickupInput.value.trim() : '',
         sendNote: document.getElementById('docNote').value.trim(),
         senderName: sessionStorage.getItem('transName')
       };
@@ -383,29 +386,49 @@ function logout() {
 }
 
 // === 傳送人員在藥師收單前修改資料 ===
-async function editSenderDoc(signId, currentType, currentWard, currentChartNo, currentSendNote) {
-  const safeWard = (currentWard === 'undefined' || currentWard === 'null' || !currentWard) ? '' : currentWard;
-  const safeChartNo = (currentChartNo === 'undefined' || currentChartNo === 'null' || !currentChartNo) ? '' : currentChartNo;
-  const safeSendNote = (currentSendNote === 'undefined' || currentSendNote === 'null' || !currentSendNote) ? '' : currentSendNote;
+async function editSenderDoc(signId, currentType, currentWard, currentChartNo, currentQty, currentPickup, currentSendNote) {
+  const safeWard = (!currentWard || currentWard === 'undefined' || currentWard === 'null') ? '' : currentWard;
+  const safeChartNo = (!currentChartNo || currentChartNo === 'undefined' || currentChartNo === 'null') ? '' : currentChartNo;
+  const safeQty = (!currentQty || currentQty === 'undefined' || currentQty === 'null') ? '' : currentQty;
+  const safePickup = (!currentPickup || currentPickup === 'undefined' || currentPickup === 'null') ? '' : currentPickup;
+  const safeSendNote = (!currentSendNote || currentSendNote === 'undefined' || currentSendNote === 'null') ? '' : currentSendNote;
+
+  // 動態產生文件類型下拉選單
+  const typeOptions = globalDocConfigs.map(c => {
+    const val = c['送件類型名稱'] || c.Title;
+    return `<option value="${val}" ${val === currentType ? 'selected' : ''}>${val}</option>`;
+  }).join('');
 
   const { value: formValues } = await Swal.fire({
     title: '修改送件資料',
     html: `
       <div class="text-start g-2 mb-3">
-        <div class="mb-2"><label class="small fw-bold text-muted">文件類型</label><input id="swal-type" class="form-control" value="${currentType}"></div>
-        <div class="mb-2"><label class="small fw-bold text-muted">病房床號</label><input id="swal-ward" class="form-control" value="${safeWard}"></div>
+        <div class="mb-2"><label class="small fw-bold text-muted">文件類型</label><select id="swal-type" class="form-select">${typeOptions}</select></div>
+        <div class="mb-2"><label class="small fw-bold text-muted">病房床號 (6碼英數)</label><input id="swal-ward" class="form-control" value="${safeWard}" placeholder="例如: 8A1234" maxlength="6"></div>
         <div class="mb-2"><label class="small fw-bold text-muted">病歷號</label><input id="swal-chart" class="form-control" value="${safeChartNo}"></div>
+        <div class="row">
+          <div class="col-6 mb-2"><label class="small fw-bold text-muted">數量/張數</label><input id="swal-qty" class="form-control" value="${safeQty}"></div>
+          <div class="col-6 mb-2"><label class="small fw-bold text-muted">領藥號</label><input id="swal-pickup" class="form-control" value="${safePickup}"></div>
+        </div>
         <div class="mb-2"><label class="small fw-bold text-muted">送件備註</label><input id="swal-note" class="form-control" value="${safeSendNote}"></div>
       </div>
     `,
     showCancelButton: true,
     confirmButtonText: '確認修改',
     preConfirm: () => {
+      const wardVal = document.getElementById('swal-ward').value.trim();
+      // ★ 防呆條件：病房床號若有填寫，必須是 6 碼英數字
+      if (wardVal !== '' && !/^[A-Za-z0-9]{6}$/.test(wardVal)) {
+        Swal.showValidationMessage('病房床號格式錯誤，必須是 6 位數的英文與數字組合');
+        return false;
+      }
       return {
         type: document.getElementById('swal-type').value,
-        ward: document.getElementById('swal-ward').value,
-        chartNo: document.getElementById('swal-chart').value,
-        sendNote: document.getElementById('swal-note').value
+        ward: wardVal,
+        chartNo: document.getElementById('swal-chart').value.trim(),
+        quantity: document.getElementById('swal-qty').value.trim(),
+        pickupNo: document.getElementById('swal-pickup').value.trim(),
+        sendNote: document.getElementById('swal-note').value.trim()
       }
     }
   });
@@ -414,7 +437,7 @@ async function editSenderDoc(signId, currentType, currentWard, currentChartNo, c
     const res = await callGAS('editSenderDoc', { signId: signId, ...formValues });
     if (res.success) {
       Swal.fire({ icon: 'success', title: '修改成功', timer: 1500, showConfirmButton: false });
-      loadTodayDocs(); // 自動刷新卡片
+      loadTodayDocs(); 
     }
   }
 }
