@@ -38,18 +38,29 @@ async function refreshPharmaDocs() {
   const result = await callGAS('getPharmaDocRecords');
   if (!result.success) return;
 
-  const todayStr = new Date().toISOString().split('T')[0];
-// 1. 待收單：依據「送件時間」從新到舊排序
+  // ★ 取得今天的 年、月、日 (修正點 1)
+  const today = new Date();
+  const todayYear = today.getFullYear();
+  const todayMonth = today.getMonth();
+  const todayDate = today.getDate();
+
+  // 1. 待收單：依據「送件時間」從新到舊排序
   const pendingData = result.data
     .filter(item => !item.IsReceived && !item.IsClosed)
     .sort((a, b) => new Date(b.SendTime) - new Date(a.SendTime));
 
-  // 2. 今日已收單：依據「收單時間」從新到舊排序
+  // 2. 今日已收單：不怕格式變化，直接轉成時間物件比對年月日 (★ 修正點 2)
   const completedData = result.data
     .filter(item => {
       if (!item.IsReceived || !item.ReceiveTime) return false;
-      // 只要日期部分符合即可 (排除時間部分)
-      return item.ReceiveTime.split('T')[0] === todayStr;
+      
+      // 將字串轉為時間物件
+      const rxDate = new Date(item.ReceiveTime);
+      
+      // 檢查這張單據的 年、月、日 是否與今天完全相同
+      return rxDate.getFullYear() === todayYear && 
+             rxDate.getMonth() === todayMonth && 
+             rxDate.getDate() === todayDate;
     })
     .sort((a, b) => new Date(b.ReceiveTime) - new Date(a.ReceiveTime));
 
