@@ -119,7 +119,6 @@
       document.getElementById('filterMedDisp').addEventListener('input', renderMeds);
       document.getElementById('filterMedChart').addEventListener('input', renderMeds);
       
-      // 下拉選單改用 change 事件監聽
       document.getElementById('filterDocType').addEventListener('change', renderDocs);
       document.getElementById('filterDocChart').addEventListener('input', renderDocs);
       document.getElementById('filterDocWard').addEventListener('input', renderDocs);
@@ -135,59 +134,50 @@
 
       const medBody = document.getElementById('medRecordsBody');
       const docBody = document.getElementById('docRecordsBody');
-      medBody.innerHTML = '<tr><td colspan="5" class="text-center py-5"><div class="spinner-border text-success"></div><p class="mt-2">資料讀取中...</p></td></tr>';
+      medBody.innerHTML = '<tr><td colspan="6" class="text-center py-5"><div class="spinner-border text-success"></div><p class="mt-2">資料讀取中...</p></td></tr>';
       docBody.innerHTML = '<tr><td colspan="4" class="text-center py-5"><div class="spinner-border text-primary"></div><p class="mt-2">資料讀取中...</p></td></tr>';
 
       const payload = { startDate: start, endDate: end };
 
+      // ★ 修正：移除雙重 payload 封裝
       const [medRes, docRes] = await Promise.all([
-        callGAS('getDailyRecords', { payload: payload }),
-        callGAS('getPublicDocRecords', { payload: payload })
+        callGAS('getDailyRecords', payload),
+        callGAS('getPublicDocRecords', payload)
       ]);
 
       allMedsData = medRes.success ? medRes.data : [];
       allDocsData = docRes.success ? docRes.data : [];
 
-      populateDocTypes(); // ★ 資料載入後，自動生成下拉選單
+      populateDocTypes();
       renderMeds();
       renderDocs();
     }
 
-    // ★ 新增：動態生成文件類型下拉選單
     function populateDocTypes() {
       const select = document.getElementById('filterDocType');
       const currentVal = select.value;
-      
-      // 使用 Set 取出不重複的文件類型
-      const uniqueTypes = [...new Set(allDocsData.map(r => r.type))].filter(Boolean);
+      const uniqueTypes = [...new Set(allDocsData.map(r => r.DocType))].filter(Boolean);
       
       let optionsHtml = '<option value="">📁 所有文件類型</option>';
       uniqueTypes.forEach(type => {
         optionsHtml += `<option value="${type}">${type}</option>`;
       });
-      
       select.innerHTML = optionsHtml;
-      
-      // 如果原本有選擇，重新整理後保留選擇
-      if (uniqueTypes.includes(currentVal)) {
-        select.value = currentVal;
-      }
+      if (uniqueTypes.includes(currentVal)) select.value = currentVal;
     }
 
-// 2. 渲染出院帶藥表格 (主列直顯最新進度、分組、排序、折疊)
     function renderMeds() {
       const dispFilter = document.getElementById('filterMedDisp').value.trim().toLowerCase();
       const chartFilter = document.getElementById('filterMedChart').value.trim().toLowerCase();
       
       const filtered = allMedsData.filter(r => {
-        const matchDisp = r.dispNo.toLowerCase().includes(dispFilter);
-        const matchChart = r.chartNo.toLowerCase().includes(chartFilter);
+        const matchDisp = (r.dispNo || '').toLowerCase().includes(dispFilter);
+        const matchChart = (r.chartNo || '').toLowerCase().includes(chartFilter);
         return matchDisp && matchChart;
       });
 
       const tbody = document.getElementById('medRecordsBody');
       if (filtered.length === 0) {
-        // ★ 欄位變成 6 個，所以 colspan 改為 6
         tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted py-4">查無符合條件的紀錄</td></tr>`;
         return;
       }
@@ -201,16 +191,14 @@
       const sortedDispNos = Object.keys(groupedData).sort((a, b) => {
         const numA = parseInt(a, 10);
         const numB = parseInt(b, 10);
-        if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
-        return a.localeCompare(b);
+        if (!isNaN(numA) && !isNaN(numB)) return numB - numA; // 反向排序讓新的在上面
+        return b.localeCompare(a);
       });
 
       let html = '';
       sortedDispNos.forEach((dispNo, index) => {
         const group = groupedData[dispNo];
         const collapseId = `collapseMed_${index}`;
-        
-        // ★ 核心魔法：因為資料是新的在前面，所以 group.records[0] 絕對是最新的一筆！
         const latestRecord = group.records[0];
 
         html += `
@@ -219,7 +207,6 @@
             <td class="text-success fw-bold">${dispNo}</td>
             <td>${group.chartNo}</td>
             <td>
-              <!-- ★ 顯示最新進度 -->
               <span class="text-primary fw-bold">${latestRecord.staffName}</span> 
               <span class="text-muted small ms-1">(${latestRecord.time})</span>
             </td>
@@ -231,7 +218,6 @@
             </td>
           </tr>
           <tr class="collapse sub-table-row" id="${collapseId}">
-            <!-- ★ 展開後的合併欄位也改為 6 -->
             <td colspan="6" class="p-3">
               <table class="table table-sm table-bordered mb-0 bg-white">
                 <thead class="table-light"><tr><th>處方日期</th><th>經手人員</th><th>刷入時間</th></tr></thead>
@@ -247,17 +233,19 @@
     }
 
     function renderDocs() {
-      const typeFilter = document.getElementById('filterDocType').value; // 下拉選單直接取值
+      const typeFilter = document.getElementById('filterDocType').value; 
       const chartFilter = document.getElementById('filterDocChart').value.trim().toLowerCase();
       const wardFilter = document.getElementById('filterDocWard').value.trim().toLowerCase();
       const dispFilter = document.getElementById('filterDocDisp').value.trim().toLowerCase();
       
       const filtered = allDocsData.filter(r => {
-        // 若下拉有選，必須完全符合
-        const matchType = typeFilter === "" ? true : r.type === typeFilter; 
-        const matchChart = r.chartNo.toLowerCase().includes(chartFilter);
-        const matchWard = r.ward.toLowerCase().includes(wardFilter);
-        const matchDisp = r.rawSearchText.toLowerCase().includes(dispFilter);
+        // ★ 動態組合搜尋字串
+        const rawSearchText = `${r.SendNote || ''} ${r.ReceiveNote || ''} ${r.Quantity || ''} ${r.PickupNo || ''}`.toLowerCase();
+
+        const matchType = typeFilter === "" ? true : r.DocType === typeFilter; 
+        const matchChart = (r.ChartNo || '').toLowerCase().includes(chartFilter);
+        const matchWard = (r.Ward || '').toLowerCase().includes(wardFilter);
+        const matchDisp = rawSearchText.includes(dispFilter);
         return matchType && matchChart && matchWard && matchDisp;
       });
 
@@ -267,42 +255,65 @@
         return;
       }
 
-      tbody.innerHTML = filtered.map(r => `
+      tbody.innerHTML = filtered.map(r => {
+        // ★ 動態計算狀態
+        let statusText = '待藥師收單';
+        let statusBadge = 'bg-warning text-dark';
+        if (r.IsClosed) {
+            statusText = (r.ReplyOption === '收下不歸還') ? '已結案' : '已領回';
+            statusBadge = 'bg-secondary';
+        } else if (r.IsReceived) {
+            statusText = r.ReplyOption;
+            statusBadge = (r.ReplyOption === '收下不歸還') ? 'bg-success' : 'bg-danger';
+        }
+
+        // ★ 動態組合顯示資訊 (與藥師端/傳送端一致)
+        let detailsArr = [];
+        if(r.Ward) detailsArr.push(`病房: <span class="text-primary fw-bold">${r.Ward}</span>`);
+        if(r.ChartNo) detailsArr.push(`病歷: <span class="text-dark fw-bold">${r.ChartNo}</span>`);
+        if(r.Quantity) detailsArr.push(`數量: <span class="text-danger fw-bold">${r.Quantity}</span>`);
+        if(r.PickupNo) detailsArr.push(`領藥號: <span class="text-success fw-bold">${r.PickupNo}</span>`);
+        
+        let sendTimeStr = r.SendTime ? new Date(r.SendTime).toLocaleTimeString('zh-TW', {hour: '2-digit', minute:'2-digit'}) : '';
+        let receiveTimeStr = r.ReceiveTime ? new Date(r.ReceiveTime).toLocaleTimeString('zh-TW', {hour: '2-digit', minute:'2-digit'}) : '';
+        let returnTimeStr = r.ReturnTime ? new Date(r.ReturnTime).toLocaleTimeString('zh-TW', {hour: '2-digit', minute:'2-digit'}) : '';
+        let dateOnly = r.SendTime ? r.SendTime.split('T')[0] : ''; // 取出日期
+
+        return `
         <tr>
           <td>
-            <div class="fw-bold text-secondary mb-1">${r.dateStr}</div>
-            <span class="badge ${r.status === '待藥師收單' ? 'bg-warning text-dark' : 'bg-secondary'} fs-6 d-inline-block mb-1">${r.status}</span><br>
-            ${r.replyOption ? `<span class="badge bg-primary fs-6">${r.replyOption}</span>` : ''}
+            <div class="fw-bold text-secondary mb-1">${dateOnly}</div>
+            <span class="badge ${statusBadge} fs-6 d-inline-block mb-1">${statusText}</span>
           </td>
           
-          <td class="fw-bold fs-5 text-dark">${r.type}</td>
+          <td class="fw-bold fs-5 text-dark">${r.DocType || ''}</td>
           
           <td>
-            <!-- ★ 完美三行排版 -->
-            <div class="mb-1 text-secondary">病房床號: <span class="text-primary fw-bold">${r.ward || '-'}</span></div>
-            <div class="mb-1 text-secondary">病歷號: <span class="text-dark fw-bold">${r.chartNo || '-'}</span></div>
-            <div class="mt-2">${r.detailsHtml}</div>
+            <div class="mb-2 text-secondary">${detailsArr.join(' | ')}</div>
+            ${r.SendNote ? `<div class="bg-light p-1 rounded small text-danger border mb-1"><i class="bi bi-person-walking me-1"></i>傳送備註: ${r.SendNote}</div>` : ''}
+            ${r.ReceiveNote ? `<div class="bg-blue-light p-1 rounded small text-primary border mb-1" style="background-color: #e7f1ff;"><i class="bi bi-capsule me-1"></i>藥師回覆: ${r.ReceiveNote}</div>` : ''}
           </td>
           
           <td>
             <ul class="list-unstyled mb-0 small">
               <li class="mb-1">
-                <i class="bi bi-person-walking text-dark me-1"></i>送件: <strong>${r.sender}</strong> 
-                <span class="text-muted ms-1">(${r.sendTime})</span>
+                <i class="bi bi-person-walking text-dark me-1"></i>送件: <strong>${r.SenderName || ''}</strong> 
+                <span class="text-muted ms-1">(${sendTimeStr})</span>
               </li>
+              ${r.IsReceived ? `
               <li class="mb-1">
-                <i class="bi bi-capsule text-primary me-1"></i>收單: <strong class="${r.pharmaName === '等待中' ? 'text-danger' : 'text-primary'}">${r.pharmaName}</strong> 
-                ${r.receiveTime ? `<span class="text-muted ms-1">(${r.receiveTime})</span>` : ''}
-              </li>
-              ${(r.returnerName && r.returnerName !== '系統結案') ? `
+                <i class="bi bi-capsule text-primary me-1"></i>收單: <strong class="text-primary">${r.PharmaName || ''}</strong> 
+                <span class="text-muted ms-1">(${receiveTimeStr})</span>
+              </li>` : ''}
+              ${r.ReturnerName ? `
               <li>
-                <i class="bi bi-check2-circle text-success me-1"></i>領回: <strong class="text-success">${r.returnerName}</strong> 
-                ${r.returnTime ? `<span class="text-muted ms-1">(${r.returnTime})</span>` : ''}
+                <i class="bi bi-check2-circle text-success me-1"></i>領回: <strong class="text-success">${r.ReturnerName}</strong> 
+                <span class="text-muted ms-1">(${returnTimeStr})</span>
               </li>` : ''}
             </ul>
           </td>
         </tr>
-      `).join('');
+      `}).join('');
     }
   </script>
 </body>
