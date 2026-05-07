@@ -192,6 +192,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         quantity: qtyInput ? qtyInput.value.trim() : '',
         pickupNo: pickupInput ? pickupInput.value.trim() : '',
         sendNote: document.getElementById('docNote').value.trim(),
+        senderId: sessionStorage.getItem('transId'),
         senderName: sessionStorage.getItem('transName')
       };
 
