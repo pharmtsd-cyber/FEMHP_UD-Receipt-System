@@ -71,7 +71,14 @@
             <div class="table-responsive">
               <table class="table table-hover align-middle fs-5 border">
                 <thead class="table-success">
-                  <tr><th>日期</th><th>領藥號</th><th>病歷號</th><th>最新進度 (人員與時間)</th><th>總筆數</th><th>操作</th></tr>
+                  <tr>
+                    <th>日期</th>
+                    <th>領藥號</th>
+                    <th>病歷號</th>
+                    <th>傳送方式</th> <th>最新進度 (人員與時間)</th>
+                    <th>總筆數</th>
+                    <th>操作</th>
+                  </tr>
                 </thead>
                 <tbody id="medRecordsBody"></tbody>
               </table>
@@ -121,7 +128,6 @@
   <script>
     let allMedsData = [];
     let allDocsData = [];
-    // 已經移除 Chart.js 的圖表變數
 
     document.addEventListener('DOMContentLoaded', () => {
       const today = new Date().toISOString().split('T')[0];
@@ -146,7 +152,7 @@
 
       const medBody = document.getElementById('medRecordsBody');
       const docBody = document.getElementById('docRecordsBody');
-      medBody.innerHTML = '<tr><td colspan="6" class="text-center py-5"><div class="spinner-border text-success"></div><p class="mt-2">資料讀取中...</p></td></tr>';
+      medBody.innerHTML = '<tr><td colspan="7" class="text-center py-5"><div class="spinner-border text-success"></div><p class="mt-2">資料讀取中...</p></td></tr>';
       docBody.innerHTML = '<tr><td colspan="4" class="text-center py-5"><div class="spinner-border text-primary"></div><p class="mt-2">資料讀取中...</p></td></tr>';
 
       const payload = { startDate: start, endDate: end };
@@ -162,7 +168,6 @@
       populateDocTypes();
       renderMeds();
       renderDocs();
-      // 已經移除呼叫 renderDashboard()
     }
 
     function populateDocTypes() {
@@ -190,7 +195,7 @@
 
       const tbody = document.getElementById('medRecordsBody');
       if (filtered.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted py-4">查無符合條件的紀錄</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" class="text-center text-muted py-4">查無符合條件的紀錄</td></tr>`;
         return;
       }
 
@@ -203,8 +208,8 @@
       const sortedDispNos = Object.keys(groupedData).sort((a, b) => {
         const numA = parseInt(a, 10);
         const numB = parseInt(b, 10);
-        if (!isNaN(numA) && !isNaN(numB)) return numA - numB; // 由小至大
-        return a.localeCompare(b); // 若非純數字，用字串比對由小至大
+        if (!isNaN(numA) && !isNaN(numB)) return numA - numB; 
+        return a.localeCompare(b); 
       });
 
       let html = '';
@@ -212,12 +217,17 @@
         const group = groupedData[dispNo];
         const collapseId = `collapseMed_${index}`;
         const latestRecord = group.records[0];
+        
+        // 判斷最新傳送方式顯示標籤
+        const latestType = latestRecord.deliveryType || '傳送';
+        const typeBadge = latestType === '氣送' ? 'bg-info' : 'bg-secondary';
 
         html += `
           <tr>
             <td>${group.dateStr}</td>
             <td class="text-success fw-bold">${dispNo}</td>
             <td>${group.chartNo}</td>
+            <td><span class="badge ${typeBadge}">${latestType}</span></td>
             <td>
               <span class="text-primary fw-bold">${latestRecord.staffName}</span> 
               <span class="text-muted small ms-1">(${latestRecord.time})</span>
@@ -230,11 +240,24 @@
             </td>
           </tr>
           <tr class="collapse sub-table-row" id="${collapseId}">
-            <td colspan="6" class="p-3">
+            <td colspan="7" class="p-3">
               <table class="table table-sm table-bordered mb-0 bg-white">
-                <thead class="table-light"><tr><th>處方日期</th><th>經手人員</th><th>刷入時間</th></tr></thead>
+                <thead class="table-light">
+                  <tr>
+                    <th>處方日期</th>
+                    <th>傳送方式</th>
+                    <th>經手人員</th>
+                    <th>刷入時間</th>
+                  </tr>
+                </thead>
                 <tbody>
-                  ${group.records.map(sub => `<tr><td>${sub.rxDate}</td><td>${sub.staffName}</td><td>${sub.time}</td></tr>`).join('')}
+                  ${group.records.map(sub => `
+                    <tr>
+                      <td>${sub.rxDate}</td>
+                      <td><span class="badge ${sub.deliveryType === '氣送' ? 'bg-info' : 'bg-secondary'}">${sub.deliveryType || '傳送'}</span></td>
+                      <td>${sub.staffName}</td>
+                      <td>${sub.time}</td>
+                    </tr>`).join('')}
                 </tbody>
               </table>
             </td>
@@ -259,13 +282,11 @@
         const matchDisp = rawSearchText.includes(dispFilter);
         return matchType && matchChart && matchWard && matchDisp;
       }).sort((a, b) => {
-        // 抓取該單據「最晚發生」的時間點
         const getLatestTime = (item) => {
           if (item.ReturnTime) return new Date(item.ReturnTime);
           if (item.ReceiveTime) return new Date(item.ReceiveTime);
           return new Date(item.SendTime || 0); 
         };
-        // 由新到舊 (Descending)
         return getLatestTime(b) - getLatestTime(a); 
       });
 
@@ -276,7 +297,6 @@
       }
 
       tbody.innerHTML = filtered.map(r => {
-        // ★ 動態計算狀態
         let statusText = '待藥師收單';
         let statusBadge = 'bg-warning text-dark';
         if (r.IsClosed) {
@@ -287,7 +307,6 @@
             statusBadge = (r.ReplyOption === '收下不歸還') ? 'bg-success' : 'bg-danger';
         }
 
-        // ★ 動態組合顯示資訊 (與藥師端/傳送端一致)
         let detailsArr = [];
         if(r.Ward) detailsArr.push(`病房: <span class="text-primary fw-bold">${r.Ward}</span>`);
         if(r.ChartNo) detailsArr.push(`病歷: <span class="text-dark fw-bold">${r.ChartNo}</span>`);
@@ -297,7 +316,7 @@
         let sendTimeStr = r.SendTime ? new Date(r.SendTime).toLocaleTimeString('zh-TW', {hour: '2-digit', minute:'2-digit'}) : '';
         let receiveTimeStr = r.ReceiveTime ? new Date(r.ReceiveTime).toLocaleTimeString('zh-TW', {hour: '2-digit', minute:'2-digit'}) : '';
         let returnTimeStr = r.ReturnTime ? new Date(r.ReturnTime).toLocaleTimeString('zh-TW', {hour: '2-digit', minute:'2-digit'}) : '';
-        let dateOnly = r.SendTime ? r.SendTime.split('T')[0] : ''; // 取出日期
+        let dateOnly = r.SendTime ? r.SendTime.split('T')[0] : ''; 
 
         return `
         <tr>
@@ -305,15 +324,12 @@
             <div class="fw-bold text-secondary mb-1">${dateOnly}</div>
             <span class="badge ${statusBadge} fs-6 d-inline-block mb-1">${statusText}</span>
           </td>
-          
           <td class="fw-bold fs-5 text-dark">${r.DocType || ''}</td>
-          
           <td>
             <div class="mb-2 text-secondary">${detailsArr.join(' | ')}</div>
             ${r.SendNote ? `<div class="bg-light p-1 rounded small text-danger border mb-1"><i class="bi bi-person-walking me-1"></i>傳送備註: ${r.SendNote}</div>` : ''}
             ${r.ReceiveNote ? `<div class="bg-blue-light p-1 rounded small text-primary border mb-1" style="background-color: #e7f1ff;"><i class="bi bi-capsule me-1"></i>藥師回覆: ${r.ReceiveNote}</div>` : ''}
           </td>
-          
           <td>
             <ul class="list-unstyled mb-0 small">
               <li class="mb-1">
