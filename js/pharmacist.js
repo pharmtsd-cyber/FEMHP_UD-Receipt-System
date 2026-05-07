@@ -26,7 +26,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   refreshPharmaDocs();
 });
 
-// === 渲染藥師緊湊版介面 (SharePoint 版本) ===
+// === 藥師端：升級版清單顯示 (含數量、領藥號、備註) ===
 async function refreshPharmaDocs() {
   const pendingBox = document.getElementById('pendingContainer');
   const completedBox = document.getElementById('completedContainer');
@@ -36,11 +36,7 @@ async function refreshPharmaDocs() {
   completedBox.innerHTML = '<div class="text-center py-3">載入中...</div>';
 
   const result = await callGAS('getPharmaDocRecords');
-  if (!result.success) {
-    pendingBox.innerHTML = '<div class="text-danger text-center py-3">讀取失敗</div>';
-    completedBox.innerHTML = '<div class="text-danger text-center py-3">讀取失敗</div>';
-    return;
-  }
+  if (!result.success) return;
 
   const todayStr = new Date().toISOString().split('T')[0];
   const pendingData = result.data.filter(item => !item.IsReceived && !item.IsClosed);
@@ -48,7 +44,7 @@ async function refreshPharmaDocs() {
 
   countBadge.textContent = pendingData.length;
 
-  // ★ 內部渲染函數：集中處理卡片 HTML 生成
+  // ★ 核心渲染邏輯：統一處理「待收單」與「已收單」的卡片外觀
   const renderCard = (item, isPending) => {
     let detailsArr = [];
     if (item.Ward) detailsArr.push(`病房: <span class="fw-bold text-dark">${item.Ward}</span>`);
@@ -59,60 +55,34 @@ async function refreshPharmaDocs() {
     let detailsHtml = detailsArr.join(' | ');
     let sendTimeStr = item.SendTime ? new Date(item.SendTime).toLocaleTimeString('zh-TW', {hour: '2-digit', minute:'2-digit'}) : '';
     let receiveTimeStr = item.ReceiveTime ? new Date(item.ReceiveTime).toLocaleTimeString('zh-TW', {hour: '2-digit', minute:'2-digit'}) : '';
-    let returnTimeStr = item.ReturnTime ? new Date(item.ReturnTime).toLocaleTimeString('zh-TW', {hour: '2-digit', minute:'2-digit'}) : '';
-    
-    // 準備藥師修改所需的 10 個參數
+
+    // 準備修改按鈕需要的 10 個參數
     const editArgs = `'${item.Title}', '${item.ReplyOption || ''}', '${item.ReceiveNote || ''}', '${item.DocType}', '${item.Ward || ''}', '${item.ChartNo || ''}', '${item.Quantity || ''}', '${item.PickupNo || ''}', '${item.SenderName}', '${item.SendNote || ''}'`;
 
-    if (isPending) {
-      return `
-      <div class="card mb-2 shadow-sm border-warning border-start border-4">
-        <div class="card-body p-2">
-          <div class="mb-1"><strong class="text-dark fs-5">${item.DocType}</strong></div>
-          <div class="small mb-1 text-secondary">${detailsHtml}</div>
-          
-          ${item.SendNote ? `<div class="bg-light p-1 rounded small text-danger border mb-1"><i class="bi bi-person-walking me-1"></i>傳送備註: ${item.SendNote}</div>` : ''}
-          
-          <div class="d-flex justify-content-between align-items-center mt-2 border-top pt-2">
-            <div class="small text-muted"><i class="bi bi-person-walking"></i> 送件: <strong class="text-dark">${item.SenderName}</strong> (${sendTimeStr})</div>
-            <button class="btn btn-warning btn-sm fw-bold" onclick="receiveDoc('${item.Title}')">進行收單</button>
-          </div>
+    return `
+    <div class="card mb-2 shadow-sm border-start border-4 ${isPending ? 'border-warning' : 'border-primary'}">
+      <div class="card-body p-2">
+        <div class="d-flex justify-content-between align-items-start">
+          <strong class="fs-5 ${isPending ? 'text-dark' : 'text-primary'}">${item.DocType}</strong>
+          ${!isPending ? `<span class="badge ${item.ReplyOption === '收下不歸還' ? 'bg-success' : 'bg-primary'}">${item.ReplyOption}</span>` : ''}
         </div>
-      </div>`;
-    } else {
-      let badgeClass = 'bg-danger'; 
-      let borderClass = 'border-primary';
-      if (item.ReplyOption === '收下不歸還') { badgeClass = 'bg-success'; borderClass = 'border-success'; } 
-      else if (item.IsClosed) { badgeClass = 'bg-secondary'; borderClass = 'border-secondary'; }
+        <div class="small mb-1 text-secondary">${detailsHtml}</div>
+        
+        ${item.SendNote ? `<div class="bg-light p-1 rounded small text-danger border mb-1"><i class="bi bi-person-walking me-1"></i>傳送備註: ${item.SendNote}</div>` : ''}
+        ${item.ReceiveNote ? `<div class="bg-blue-light p-1 rounded small text-primary border mb-1" style="background-color: #e7f1ff;"><i class="bi bi-capsule me-1"></i>藥師回覆: ${item.ReceiveNote}</div>` : ''}
 
-      return `
-      <div class="card mb-2 shadow-sm border-start border-4 ${borderClass}">
-        <div class="card-body p-2">
-          <div class="d-flex justify-content-between align-items-start">
-            <strong class="fs-5 text-primary">${item.DocType}</strong>
-            <span class="badge ${badgeClass}">${item.IsClosed && item.ReplyOption !== '收下不歸還' ? '已領回' : item.ReplyOption}</span>
+        <div class="d-flex justify-content-between align-items-center mt-2 border-top pt-2">
+          <div class="small text-muted">
+            <i class="bi bi-person-walking"></i> ${item.SenderName} (${sendTimeStr})
+            ${!isPending ? `<br><i class="bi bi-capsule"></i> ${item.PharmaName} (${receiveTimeStr})` : ''}
           </div>
-          <div class="small mb-1 text-secondary">${detailsHtml}</div>
-          
-          ${(item.SendNote || item.ReceiveNote) ? `
-          <div class="bg-light p-1 my-1 rounded border small">
-            ${item.SendNote ? `<div class="text-danger mb-1"><i class="bi bi-person-walking me-1"></i>備註: <span class="fw-bold">${item.SendNote}</span></div>` : ''}
-            ${item.ReceiveNote ? `<div class="text-primary"><i class="bi bi-capsule me-1"></i>藥師回覆: <span class="fw-bold">${item.ReceiveNote}</span></div>` : ''}
-          </div>` : ''}
-
-          <div class="d-flex justify-content-between align-items-end mt-2 border-top pt-2">
-            <div class="small text-muted">
-              <div class="mb-1"><i class="bi bi-person-walking me-1"></i>送件: <strong class="text-dark">${item.SenderName}</strong> (${sendTimeStr})</div>
-              <div class="mb-1"><i class="bi bi-capsule me-1"></i>收單: <strong class="text-primary">${item.PharmaName}</strong> (${receiveTimeStr})</div>
-              ${item.ReturnerName ? `<div><i class="bi bi-check2-circle me-1"></i>領回: <strong class="text-success">${item.ReturnerName}</strong> (${returnTimeStr})</div>` : ''}
-            </div>
-            <div class="text-end">
-              <button class="btn btn-outline-primary btn-sm py-0 w-100 mt-2" onclick="editDocInfo(${editArgs})">修改全部資料</button>
-            </div>
-          </div>
+          ${isPending ? 
+            `<button class="btn btn-warning btn-sm fw-bold" onclick="receiveDoc('${item.Title}')">收單</button>` : 
+            `<button class="btn btn-outline-primary btn-sm py-0" onclick="editDocInfo(${editArgs})">修改</button>`
+          }
         </div>
-      </div>`;
-    }
+      </div>
+    </div>`;
   };
 
   pendingBox.innerHTML = pendingData.length ? pendingData.map(item => renderCard(item, true)).join('') : '<div class="text-muted text-center py-4">無待處理單據</div>';
