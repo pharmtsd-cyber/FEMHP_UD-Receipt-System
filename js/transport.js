@@ -310,28 +310,36 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
-// 5. 獲取並渲染今日送件進度 (卡片產生器)
+// === 傳送端：載入今日送件紀錄 ===
 async function loadTodayDocs() {
   const container = document.getElementById('docRecordContainer');
   const btn = document.getElementById('btnRefreshDoc');
   if (!container) return;
 
-  // 讓按鈕轉圈圈，避免重複點擊
-  if(btn) {
+  if (btn) {
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>讀取中';
   }
   container.innerHTML = '<div class="text-muted text-center py-5 fs-5">資料讀取中...</div>';
 
-  // 呼叫剛剛在 Power Automate 寫好的 API
   const res = await callGAS('getTodayDocRecords');
 
   if (res.success) {
     if (res.data.length === 0) {
-      container.innerHTML = '<div class="text-muted text-center py-5 fs-5">今日尚無未結案的送件紀錄</div>';
+      container.innerHTML = '<div class="text-muted text-center py-5 fs-5">今日尚無未結案的紀錄</div>';
     } else {
-      // 將資料陣列轉換成精美的卡片 HTML
-      container.innerHTML = res.data.map(item => `
+      container.innerHTML = res.data.map(item => {
+        // ★ 動態資訊顯示邏輯：有填才顯示，並加上顏色區分
+        let details = [];
+        if (item.ward) details.push(`病房: <span class="fw-bold text-dark">${item.ward}</span>`);
+        if (item.chartNo) details.push(`病歷: <span class="fw-bold text-dark">${item.chartNo}</span>`);
+        if (item.quantity) details.push(`數量: <span class="text-danger fw-bold">${item.quantity}</span>`);
+        if (item.pickupNo) details.push(`領藥號: <span class="text-success fw-bold">${item.pickupNo}</span>`);
+
+        // 準備修改按鈕需要的參數 (確保順序與 editSenderDoc 一致)
+        const args = `'${item.signId}', '${item.type}', '${item.ward || ''}', '${item.chartNo || ''}', '${item.quantity || ''}', '${item.pickupNo || ''}', '${item.sendNote || ''}'`;
+
+        return `
         <div class="card mb-3 shadow-sm border-start border-4 ${item.status === '待藥師收單' ? 'border-warning' : (item.status === '退件' ? 'border-danger' : 'border-primary')}">
           <div class="card-body p-3">
             <div class="d-flex justify-content-between align-items-center mb-2">
@@ -339,27 +347,28 @@ async function loadTodayDocs() {
               <span class="text-muted small">${item.sendTime}</span>
             </div>
             <h5 class="fw-bold text-dark mb-1">${item.type}</h5>
-            <div class="text-secondary small mb-2">
-              病房床號: <span class="fw-bold">${item.ward || '-'}</span> | 病歷號: <span class="fw-bold">${item.chartNo || '-'}</span>
-            </div>
+            <div class="text-secondary small mb-2">${details.join(' | ')}</div>
+            ${item.sendNote ? `<div class="text-danger small mb-2 bg-light p-1 rounded border"><i class="bi bi-chat-left-text me-1"></i>送件備註: ${item.sendNote}</div>` : ''}
+            
             <div class="d-flex justify-content-between align-items-end mt-2 pt-2 border-top">
               <div class="small text-muted">
                 <i class="bi bi-person-walking"></i> 送件: ${item.sender}<br>
                 <i class="bi bi-capsule"></i> 藥師: <span class="${item.pharmaName === '等待中' ? 'text-danger' : 'text-primary'}">${item.pharmaName}</span>
               </div>
-              ${(item.status === '掛牌待傳送領回' || item.status === '退件') ? `<button class="btn btn-sm btn-outline-success fw-bold" onclick="acknowledgeReturn('${item.signId}')">確認領回</button>` : ''}
-              ${item.status === '待藥師收單' ? `<button class="btn btn-sm btn-outline-primary fw-bold" onclick="editSenderDoc('${item.signId}', '${item.type}', '${item.ward || ''}', '${item.chartNo || ''}', '${item.sendNote || ''}')"><i class="bi bi-pencil-square me-1"></i>修改資料</button>` : ''}
+              <div>
+                ${(item.status === '掛牌待傳送領回' || item.status === '退件') ? `<button class="btn btn-sm btn-success fw-bold" onclick="acknowledgeReturn('${item.signId}')">確認領回</button>` : ''}
+                ${item.status === '待藥師收單' ? `<button class="btn btn-sm btn-outline-primary fw-bold" onclick="editSenderDoc(${args})"><i class="bi bi-pencil-square me-1"></i>修改資料</button>` : ''}
+              </div>
             </div>
           </div>
-        </div>
-      `).join('');
+        </div>`;
+      }).join('');
     }
   } else {
-    container.innerHTML = '<div class="text-danger text-center py-5 fs-5">讀取失敗，請確認網路連線</div>';
+    container.innerHTML = '<div class="text-danger text-center py-5 fs-5">連線失敗</div>';
   }
 
-  // 恢復按鈕狀態
-  if(btn) {
+  if (btn) {
     btn.disabled = false;
     btn.innerHTML = '<i class="bi bi-arrow-clockwise me-1"></i>重整';
   }
