@@ -191,8 +191,8 @@
       const sortedDispNos = Object.keys(groupedData).sort((a, b) => {
         const numA = parseInt(a, 10);
         const numB = parseInt(b, 10);
-        if (!isNaN(numA) && !isNaN(numB)) return numB - numA; // 反向排序讓新的在上面
-        return b.localeCompare(a);
+        if (!isNaN(numA) && !isNaN(numB)) return numA - numB; // 由小至大
+        return a.localeCompare(b); // 若非純數字，用字串比對由小至大
       });
 
       let html = '';
@@ -238,15 +238,23 @@
       const wardFilter = document.getElementById('filterDocWard').value.trim().toLowerCase();
       const dispFilter = document.getElementById('filterDocDisp').value.trim().toLowerCase();
       
-      const filtered = allDocsData.filter(r => {
-        // ★ 動態組合搜尋字串
-        const rawSearchText = `${r.SendNote || ''} ${r.ReceiveNote || ''} ${r.Quantity || ''} ${r.PickupNo || ''}`.toLowerCase();
 
+      const filtered = allDocsData.filter(r => {
+        const rawSearchText = `${r.SendNote || ''} ${r.ReceiveNote || ''} ${r.Quantity || ''} ${r.PickupNo || ''}`.toLowerCase();
         const matchType = typeFilter === "" ? true : r.DocType === typeFilter; 
         const matchChart = (r.ChartNo || '').toLowerCase().includes(chartFilter);
         const matchWard = (r.Ward || '').toLowerCase().includes(wardFilter);
         const matchDisp = rawSearchText.includes(dispFilter);
         return matchType && matchChart && matchWard && matchDisp;
+      }).sort((a, b) => {
+        // 抓取該單據「最晚發生」的時間點
+        const getLatestTime = (item) => {
+          if (item.ReturnTime) return new Date(item.ReturnTime);
+          if (item.ReceiveTime) return new Date(item.ReceiveTime);
+          return new Date(item.SendTime || 0); 
+        };
+        // 由新到舊 (Descending)
+        return getLatestTime(b) - getLatestTime(a); 
       });
 
       const tbody = document.getElementById('docRecordsBody');
