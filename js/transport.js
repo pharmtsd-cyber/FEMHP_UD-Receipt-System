@@ -299,10 +299,12 @@ async function loadTodayDocs() {
 
       container.innerHTML = sortedData.map(item => {
         let details = [];
-        if (item.ward) details.push(`病房: <span class="fw-bold text-dark">${item.ward}</span>`);
-        if (item.chartNo) details.push(`病歷: <span class="fw-bold text-dark">${item.chartNo}</span>`);
-        if (item.quantity) details.push(`數量: <span class="text-danger fw-bold">${item.quantity}</span>`);
-        if (item.pickupNo) details.push(`領藥號: <span class="text-success fw-bold">${item.pickupNo}</span>`);
+        if (item.ward) details.push(`病房: <span class="fw-bold text-primary fs-5 align-middle">${item.ward}</span>`);
+        if (item.chartNo) details.push(`病歷: <span class="fw-bold text-dark fs-5 align-middle">${item.chartNo}</span>`);
+        
+        // 數量與領藥號稍微放大 (fs-6) 以搭配整體比例
+        if (item.quantity) details.push(`數量: <span class="text-danger fw-bold fs-6 align-middle">${item.quantity}</span>`);
+        if (item.pickupNo) details.push(`領藥號: <span class="text-success fw-bold fs-6 align-middle">${item.pickupNo}</span>`);
 
         const args = `'${item.signId}', '${item.type}', '${item.ward || ''}', '${item.chartNo || ''}', '${item.quantity || ''}', '${item.pickupNo || ''}', '${item.sendNote || ''}'`;
 
@@ -314,7 +316,11 @@ async function loadTodayDocs() {
               <span class="text-muted small">${item.sendTime}</span>
             </div>
             <h5 class="fw-bold text-dark mb-1">${item.type}</h5>
-            <div class="text-secondary small mb-2">${details.join(' | ')}</div>
+            
+            <div class="text-secondary mb-2 mt-2 lh-base">
+              ${details.join('<span class="mx-2 text-black-50 fw-light">|</span>')}
+            </div>
+            
             ${item.sendNote ? `<div class="text-danger small mb-2 bg-light p-1 rounded border"><i class="bi bi-chat-left-text me-1"></i>送件備註: ${item.sendNote}</div>` : ''}
             
             <div class="d-flex justify-content-between align-items-end mt-2 pt-2 border-top">
