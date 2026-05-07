@@ -1,5 +1,5 @@
 // js/pharmacist.js
-
+let docTypeOptionsData = []; // 用來存文件類型
 let currentPharmaId = sessionStorage.getItem('pharmaId');
 let currentPharmaName = sessionStorage.getItem('pharmaName');
 let replyOptionsData = []; 
@@ -121,35 +121,68 @@ async function refreshPharmaDocs() {
   }
 }
 
-// === 藥師修改傳送填錯的資料 ===
-async function editDocInfo(signId, currentWard, currentChartNo) {
+// === 藥師修改單據詳細資料 ===
+async function editDocInfo(signId, currentOption, currentNote, currentType, currentWard, currentChartNo, currentQty, currentPickup, currentSender, currentSendNote) {
+  const safeNote = (!currentNote || currentNote === 'undefined' || currentNote === 'null') ? '' : currentNote;
+  const safeSendNote = (!currentSendNote || currentSendNote === 'undefined' || currentSendNote === 'null') ? '' : currentSendNote;
+  const safeWard = (!currentWard || currentWard === 'undefined' || currentWard === 'null') ? '' : currentWard;
+  const safeChartNo = (!currentChartNo || currentChartNo === 'undefined' || currentChartNo === 'null') ? '' : currentChartNo;
+  const safeQty = (!currentQty || currentQty === 'undefined' || currentQty === 'null') ? '' : currentQty;
+  const safePickup = (!currentPickup || currentPickup === 'undefined' || currentPickup === 'null') ? '' : currentPickup;
+
+  const optionsHtml = replyOptionsData.map(opt => `<option value="${opt}" ${opt === currentOption ? 'selected' : ''}>${opt}</option>`).join('');
+  const typeHtml = docTypeOptionsData.map(opt => `<option value="${opt}" ${opt === currentType ? 'selected' : ''}>${opt}</option>`).join('');
+
   const { value: formValues } = await Swal.fire({
-    title: '修改資料',
+    title: '修改單據詳細資料',
     html: `
-      <input id="swal-ward" class="form-control mb-2" value="${currentWard === 'undefined' ? '' : currentWard}" placeholder="病房床號">
-      <input id="swal-chart" class="form-control" value="${currentChartNo === 'undefined' ? '' : currentChartNo}" placeholder="病歷號">
+      <div class="row text-start g-2 mb-3 bg-light p-2 rounded">
+        <div class="col-6"><label class="small fw-bold text-muted">文件類型</label><select id="swal-type" class="form-select form-select-sm">${typeHtml}</select></div>
+        <div class="col-6"><label class="small fw-bold text-muted">送件人</label><input id="swal-sender" class="form-control form-control-sm" value="${currentSender}" readonly></div>
+        <div class="col-6"><label class="small fw-bold text-muted">病房床號(6碼)</label><input id="swal-ward" class="form-control form-control-sm" value="${safeWard}" maxlength="6"></div>
+        <div class="col-6"><label class="small fw-bold text-muted">病歷號</label><input id="swal-chart" class="form-control form-control-sm" value="${safeChartNo}"></div>
+        <div class="col-6"><label class="small fw-bold text-muted">數量/張數</label><input id="swal-qty" class="form-control form-control-sm" value="${safeQty}"></div>
+        <div class="col-6"><label class="small fw-bold text-muted">領藥號</label><input id="swal-pickup" class="form-control form-control-sm" value="${safePickup}"></div>
+        <div class="col-12"><label class="small fw-bold text-muted">送件備註</label><input id="swal-sendnote" class="form-control form-control-sm" value="${safeSendNote}"></div>
+      </div>
+      <hr>
+      <div class="text-start mb-2">
+        <label class="small fw-bold text-primary">處置狀態</label>
+        <select id="swal-edit-option" class="form-select">${optionsHtml}</select>
+      </div>
+      <div class="text-start">
+        <label class="small fw-bold text-primary">藥師備註</label>
+        <input id="swal-edit-note" class="form-control" value="${safeNote}">
+      </div>
     `,
-    focusConfirm: false,
     showCancelButton: true,
-    confirmButtonText: '儲存',
+    confirmButtonText: '確認儲存',
+    width: '500px',
     preConfirm: () => {
+      const wardVal = document.getElementById('swal-ward').value.trim();
+      if (wardVal !== '' && !/^[A-Za-z0-9]{6}$/.test(wardVal)) {
+        Swal.showValidationMessage('病房床號格式錯誤，必須是 6 位數的英文與數字組合');
+        return false;
+      }
       return {
-        ward: document.getElementById('swal-ward').value.trim(),
-        chartNo: document.getElementById('swal-chart').value.trim()
+        type: document.getElementById('swal-type').value,
+        ward: wardVal,
+        chartNo: document.getElementById('swal-chart').value.trim(),
+        quantity: document.getElementById('swal-qty').value.trim(),
+        pickupNo: document.getElementById('swal-pickup').value.trim(),
+        senderName: document.getElementById('swal-sender').value.trim(),
+        sendNote: document.getElementById('swal-sendnote').value.trim(),
+        replyOption: document.getElementById('swal-edit-option').value,
+        note: document.getElementById('swal-edit-note').value
       }
     }
   });
 
-// === 1. 藥師修改資料 === (修改這部分)
   if (formValues) {
-    Toast.fire({ icon: 'info', title: '背景儲存中...', timer: 3000 }); // ★ 替換原本的轉圈圈
-    const payload = { action: 'updateInfo', signId: signId, ward: formValues.ward, chartNo: formValues.chartNo };
-    const res = await callGAS('editDocRecord', payload);
+    const res = await callGAS('editDocRecord', { signId: signId, ...formValues });
     if (res.success) {
-      Toast.fire({ icon: 'success', title: '修改成功' });
-      refreshPharmaDocs();
-    } else {
-      Swal.fire('失敗', res.message, 'error');
+      Swal.fire({ icon: 'success', title: '修改成功', timer: 1500, showConfirmButton: false });
+      refreshPharmaDocs(); 
     }
   }
 }
