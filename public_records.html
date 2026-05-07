@@ -212,7 +212,7 @@
         const latestRecord = group.records[0];
 
         // ★ 顏色區分邏輯 (主表格)
-        const latestType = latestRecord.TaskType || '未註記';
+        const latestType = latestRecord.TaskType || latestRecord.taskType || '未註記';
         let typeBadge = 'bg-secondary';
         if (latestType === '氣送') typeBadge = 'bg-info text-dark';
         else if (latestType !== '未註記') typeBadge = 'bg-warning text-dark';
@@ -241,7 +241,7 @@
                 <tbody>
                   ${group.records.map(sub => {
                     // ★ 顏色區分邏輯 (詳細紀錄表格)
-                    const subType = sub.TaskType || '未註記';
+                    const subType = sub.TaskType || sub.taskType || '未註記';
                     let subTypeBadge = 'bg-secondary';
                     if (subType === '氣送') subTypeBadge = 'bg-info text-dark';
                     else if (subType !== '未註記') subTypeBadge = 'bg-warning text-dark';
