@@ -392,3 +392,44 @@ function logout() {
   sessionStorage.clear();
   window.location.href = 'index.html';
 }
+
+// === 傳送人員確認領回 (退件或掛牌待傳送領回) ===
+async function acknowledgeReturn(signId) {
+  const transId = sessionStorage.getItem('transId');
+  const transName = sessionStorage.getItem('transName');
+
+  const { isConfirmed } = await Swal.fire({
+    title: '確認領回文件？',
+    text: '領回後此單據將正式結案，不再顯示於目前的清單中。',
+    icon: 'warning',
+    showCancelButton: true,
+    confirmButtonColor: '#198754', // 綠色確認鈕
+    confirmButtonText: '<i class="bi bi-check2-circle me-1"></i>是的，確認領回',
+    cancelButtonText: '取消'
+  });
+
+  if (isConfirmed) {
+    // 顯示處理中動畫
+    Swal.fire({
+      title: '處理結案中...',
+      allowOutsideClick: false,
+      didOpen: () => { Swal.showLoading(); }
+    });
+
+    const payload = {
+      signId: signId,
+      returnerId: transId, // 抓取目前登入的傳送員編
+      returnerName: transName // 抓取目前登入的傳送姓名
+    };
+
+    // 呼叫 API 總機進行結案
+    const res = await callGAS('acknowledgeReturn', payload);
+
+    if (res.success) {
+      Swal.fire({ icon: 'success', title: '已成功領回並結案', timer: 1500, showConfirmButton: false });
+      loadTodayDocs(); // 自動重整畫面，讓卡片消失
+    } else {
+      Swal.fire('發生錯誤', res.message || '領回失敗，請稍後再試', 'error');
+    }
+  }
+}
