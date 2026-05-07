@@ -122,7 +122,7 @@
 
       if (newPwd && newPwd.trim() !== '') {
         Toast.fire({ icon: 'info', title: '背景更新中...', timer: 3000 });
-        const res = await callGAS('updateSharedPassword', { payload: { newPassword: newPwd.trim() } });
+        const res = await callGAS('updateSharedPassword', { newPassword: newPwd.trim() });
         
         if (res.success) {
           Toast.fire({ icon: 'success', title: '共同密碼已更新！' });
@@ -214,7 +214,7 @@
           role: formValues.role 
         };
         
-        const res = await callGAS('modifyStaff', { payload: payload });
+        const res = await callGAS('modifyStaff', payload);
         if (res.success) {
           Toast.fire({ icon: 'success', title: res.message });
           loadStaffList(); // 重新整理表格
@@ -237,7 +237,7 @@
 
       if (confirm.isConfirmed) {
         Toast.fire({ icon: 'info', title: '背景刪除中...', timer: 5000 });
-        const res = await callGAS('modifyStaff', { payload: { type: 'delete', id: id } });
+        const res = await callGAS('modifyStaff', { type: 'delete', id: id });
         if (res.success) {
           Toast.fire({ icon: 'success', title: '已刪除' });
           loadStaffList();
