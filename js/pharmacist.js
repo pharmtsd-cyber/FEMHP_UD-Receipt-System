@@ -46,7 +46,11 @@ async function refreshPharmaDocs() {
 
   // 2. 今日已收單：依據「收單時間」從新到舊排序
   const completedData = result.data
-    .filter(item => item.IsReceived && item.ReceiveTime && item.ReceiveTime.startsWith(todayStr))
+    .filter(item => {
+      if (!item.IsReceived || !item.ReceiveTime) return false;
+      // 只要日期部分符合即可 (排除時間部分)
+      return item.ReceiveTime.split('T')[0] === todayStr;
+    })
     .sort((a, b) => new Date(b.ReceiveTime) - new Date(a.ReceiveTime));
 
   countBadge.textContent = pendingData.length;
