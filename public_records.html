@@ -136,6 +136,8 @@
   <script>
     let allMedsData = [];
     let allDocsData = [];
+    let statusChartInstance = null;
+    let typeChartInstance = null;
 
     document.addEventListener('DOMContentLoaded', () => {
       const today = new Date().toISOString().split('T')[0];
@@ -177,6 +179,7 @@
       populateDocTypes();
       renderMeds();
       renderDocs();
+      renderDashboard();
     }
 
     function populateDocTypes() {
@@ -350,7 +353,7 @@
       `}).join('');
     }
 
-    // === 繪製統計面板 ===
+// === 繪製統計面板 ===
     function renderDashboard() {
       // 1. 準備統計變數
       let pending = 0, closed = 0, returned = 0;
@@ -358,32 +361,29 @@
 
       // 2. 統計文件資料
       allDocsData.forEach(r => {
-        // 狀態統計
-        if (r.IsClosed) {
-            if (r.ReplyOption === '收下不歸還') closed++;
-            else returned++;
-        } else if (r.IsReceived) {
+        // 狀態統計 (依據 IsClosed 與 ReplyOption 判斷)
+        if (r.IsClosed || r.IsReceived) {
             if (r.ReplyOption === '收下不歸還') closed++;
             else returned++;
         } else {
             pending++;
         }
 
-        // 類型統計
+        // 類型統計 (例如：出院帶藥、會辦單等)
         const type = r.DocType || '未分類';
         typeCounts[type] = (typeCounts[type] || 0) + 1;
       });
 
-      // 3. 銷毀舊圖表 (防止重複渲染破圖)
+      // 3. 銷毀舊圖表 (防止滑鼠移上去時圖表閃爍或出現舊數據)
       if (statusChartInstance) statusChartInstance.destroy();
       if (typeChartInstance) typeChartInstance.destroy();
 
-      // 4. 畫出「狀態甜甜圈圖」
+      // 4. 畫出「文件處理狀態圓餅圖」
       const ctxStatus = document.getElementById('statusChart').getContext('2d');
       statusChartInstance = new Chart(ctxStatus, {
         type: 'doughnut',
         data: {
-          labels: ['待藥師收單', '已結案 (收下)', '已領回 / 退件'],
+          labels: ['待藥師收單', '已結案', '已領回 / 退件'],
           datasets: [{
             data: [pending, closed, returned],
             backgroundColor: ['#ffc107', '#198754', '#dc3545'],
@@ -391,12 +391,13 @@
           }]
         },
         options: { 
-          responsive: true, maintainAspectRatio: false,
-          plugins: { legend: { position: 'bottom', labels: { font: { size: 14 } } } }
+          responsive: true, 
+          maintainAspectRatio: false,
+          plugins: { legend: { position: 'bottom' } }
         }
       });
 
-      // 5. 畫出「文件類型長條圖」
+      // 5. 畫出「文件類型數量統計圖」
       const types = Object.keys(typeCounts);
       const counts = Object.values(typeCounts);
       const ctxType = document.getElementById('typeChart').getContext('2d');
@@ -412,15 +413,14 @@
           }]
         },
         options: { 
-          responsive: true, maintainAspectRatio: false,
+          responsive: true, 
+          maintainAspectRatio: false,
           plugins: { legend: { display: false } },
-          scales: { 
-            y: { beginAtZero: true, ticks: { stepSize: 1, font: { size: 14 } } },
-            x: { ticks: { font: { size: 14 } } }
-          }
+          scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
         }
       });
     }
+    
   </script>
 </body>
 </html>
