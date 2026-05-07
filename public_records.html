@@ -218,8 +218,8 @@
         const collapseId = `collapseMed_${index}`;
         const latestRecord = group.records[0];
         
-        // 判斷最新傳送方式顯示標籤
-        const latestType = latestRecord.deliveryType || '傳送';
+        // ★ 修正：精確抓取 TaskType 欄位
+        const latestType = latestRecord.TaskType || '未註記';
         const typeBadge = latestType === '氣送' ? 'bg-info' : 'bg-secondary';
 
         html += `
@@ -227,7 +227,7 @@
             <td>${group.dateStr}</td>
             <td class="text-success fw-bold">${dispNo}</td>
             <td>${group.chartNo}</td>
-            <td><span class="badge ${typeBadge}">${latestType}</span></td>
+            <td><span class="badge ${typeBadge} fs-6">${latestType}</span></td>
             <td>
               <span class="text-primary fw-bold">${latestRecord.staffName}</span> 
               <span class="text-muted small ms-1">(${latestRecord.time})</span>
@@ -254,7 +254,7 @@
                   ${group.records.map(sub => `
                     <tr>
                       <td>${sub.rxDate}</td>
-                      <td><span class="badge ${sub.deliveryType === '氣送' ? 'bg-info' : 'bg-secondary'}">${sub.deliveryType || '傳送'}</span></td>
+                      <td><span class="badge ${sub.TaskType === '氣送' ? 'bg-info' : 'bg-secondary'}">${sub.TaskType || '未註記'}</span></td>
                       <td>${sub.staffName}</td>
                       <td>${sub.time}</td>
                     </tr>`).join('')}
