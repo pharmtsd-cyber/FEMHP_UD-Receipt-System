@@ -274,6 +274,7 @@ async function loadDocConfig() {
 }
 
 async function loadTodayDocs() {
+  const displayData = filteredData.sort((a, b) => new Date(b.SendTime) - new Date(a.SendTime));
   const container = document.getElementById('docRecordContainer');
   const btn = document.getElementById('btnRefreshDoc');
   if (!container) return;
