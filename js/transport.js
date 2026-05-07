@@ -274,7 +274,6 @@ async function loadDocConfig() {
 }
 
 async function loadTodayDocs() {
-  const displayData = filteredData.sort((a, b) => new Date(b.SendTime) - new Date(a.SendTime));
   const container = document.getElementById('docRecordContainer');
   const btn = document.getElementById('btnRefreshDoc');
   if (!container) return;
@@ -291,7 +290,14 @@ async function loadTodayDocs() {
     if (res.data.length === 0) {
       container.innerHTML = '<div class="text-muted text-center py-5 fs-5">今日尚無未結案的紀錄</div>';
     } else {
-      container.innerHTML = res.data.map(item => {
+      // ★ 修正：在資料成功取回後進行排序 (最新時間排最上)
+      const sortedData = res.data.sort((a, b) => {
+        const timeA = new Date(a.sendTime || a.SendTime || 0);
+        const timeB = new Date(b.sendTime || b.SendTime || 0);
+        return timeB - timeA;
+      });
+
+      container.innerHTML = sortedData.map(item => {
         let details = [];
         if (item.ward) details.push(`病房: <span class="fw-bold text-dark">${item.ward}</span>`);
         if (item.chartNo) details.push(`病歷: <span class="fw-bold text-dark">${item.chartNo}</span>`);
