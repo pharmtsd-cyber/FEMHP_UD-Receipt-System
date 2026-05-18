@@ -54,7 +54,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('displayUser').textContent = `${transName} (${transId})`;
 
   // 2. 設定今日日期
-  const today = new Date().toISOString().split('T')[0];
+  const now = new Date();
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
   const medDateInput = document.getElementById('medDate');
   if(medDateInput) medDateInput.value = today;
 
