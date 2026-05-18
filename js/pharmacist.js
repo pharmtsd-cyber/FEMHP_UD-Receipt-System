@@ -421,7 +421,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  function addPneumaticCardToUI(data, cardId, isPending, isDuplicate = false, isCancel = false) {
+function addPneumaticCardToUI(data, cardId, isPending, isDuplicate = false, isCancel = false) {
     if (pEmptyState) pEmptyState.style.display = 'none';
     const card = document.createElement('div');
     card.id = cardId;
