@@ -77,7 +77,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     });
 
-    barcodeInput.addEventListener('keypress', async (e) => {
+barcodeInput.addEventListener('keypress', async (e) => {
       if (e.key === 'Enter') {
         e.preventDefault();
         const barcodeValue = barcodeInput.value.trim();
@@ -98,68 +98,75 @@ document.addEventListener('DOMContentLoaded', async () => {
         const rxDate = dateMatch ? dateMatch[1] : '';
 
         const itemKey = `${dispenseNo}-${rxDate}`;
-        const isNewItem = !pScannedItems.has(itemKey);
-        
-        let finalTaskType = '氣送'; // 預設狀態
+        const isNewItem = !scannedItems.has(itemKey);
+        const cardId = 'card_' + Date.now();
+
+        let finalTaskType = '傳送'; // 預設狀態
         let isDuplicateLabel = false;
         let isCancelDispense = false;
 
         if (isNewItem) {
-          pScannedItems.add(itemKey);
+          scannedItems.add(itemKey);
         } else {
-          playErrorSound();
+          // 遇到重複刷入，先播放錯誤音效提醒
+          playErrorSound(); 
+          
+          // 跳出 SweetAlert 視窗讓使用者選擇
           const { value: userChoice } = await Swal.fire({
             title: '⚠️ 重複刷入提示',
             text: `領藥號 ${dispenseNo} 剛剛已經刷入過了！請問您要：`,
             icon: 'warning',
             showDenyButton: true,
             showCancelButton: true,
-            confirmButtonText: '覆蓋重刷 (維持氣送)',
+            confirmButtonText: '覆蓋重刷 (維持傳送)',
             denyButtonText: '取消領藥',
             cancelButtonText: '取消動作 (不記錄)',
-            confirmButtonColor: '#198754',
-            denyButtonColor: '#dc3545',
+            confirmButtonColor: '#198754', // 綠色
+            denyButtonColor: '#dc3545',    // 紅色
             allowOutsideClick: false
           });
 
           if (userChoice === true) {
-            finalTaskType = '氣送';
+            // 選擇「覆蓋重刷」
+            finalTaskType = '傳送';
             isDuplicateLabel = true;
           } else if (userChoice === false) {
+            // 選擇「取消領藥」
             finalTaskType = '取消領藥';
             isDuplicateLabel = true;
             isCancelDispense = true;
           } else {
-            pBarcodeInput.value = '';
-            pBarcodeInput.focus();
-            return;
+            // 選擇「取消動作」，直接終止
+            barcodeInput.value = '';
+            barcodeInput.focus();
+            return; 
           }
         }
 
-        const payload = {
-          date: pDateInput.value,
+        const dataForCard = { chartNo, dispenseNo, rxDate, staffName: transName, type: finalTaskType };
+        
+        if (isNewItem) {
+          addCardToUI(dataForCard, cardId, true); 
+          if(totalCountSpan) totalCountSpan.textContent = scannedItems.size;
+        } else {
+          // 傳入新參數來渲染畫面
+          addCardToUI(dataForCard, cardId, true, isDuplicateLabel, isCancelDispense); 
+        }
+        
+        barcodeInput.value = '';
+        barcodeInput.focus(); // 確保焦點回去
+
+        // 將最後決定的狀態傳給後端
+        const result = await callGAS('logDischargeMeds', {
+          date: document.getElementById('medDate').value,
           barcode: barcodeValue,
-          type: finalTaskType, // 動態狀態
-          staffId: currentPharmaId,
-          staffName: currentPharmaName,
+          type: finalTaskType, 
+          staffId: transId,
+          staffName: transName,
           chartNo: chartNo,
           dispenseNo: dispenseNo,
           rxDate: rxDate
-        };
-
-        const cardId = 'p_card_' + Date.now();
-        
-        if (isNewItem) {
-          addPneumaticCardToUI(payload, cardId, true); 
-          pTotalCountSpan.textContent = pScannedItems.size;
-        } else {
-          addPneumaticCardToUI(payload, cardId, true, isDuplicateLabel, isCancelDispense); 
-        }
-        
-        pBarcodeInput.value = '';
-        pBarcodeInput.focus();
-
-        const result = await callGAS('logDischargeMeds', payload);
+        });
         
         if (result.success) {
           playSuccessSound(); 
