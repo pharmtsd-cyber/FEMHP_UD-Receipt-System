@@ -211,11 +211,11 @@
         const collapseId = `collapseMed_${index}`;
         const latestRecord = group.records[0];
 
-        // ★ 顏色區分邏輯 (主表格)
+// ★ 顏色區分邏輯 (主表格)
         const latestType = latestRecord.TaskType || latestRecord.taskType || '未註記';
         let typeBadge = 'bg-secondary';
         if (latestType === '氣送') typeBadge = 'bg-info text-dark';
-        else if (latestType === '取消領藥') typeBadge = 'bg-danger text-white'; // ★ 新增這行
+        else if (latestType === '取消領藥') typeBadge = 'bg-danger text-white'; // 👈 新增這行：讓主表格顯示紅色標籤
         else if (latestType !== '未註記') typeBadge = 'bg-warning text-dark';
 
         html += `
@@ -241,11 +241,11 @@
                 <thead class="table-light"><tr><th>處方日期</th><th>傳送方式</th><th>經手人員</th><th>刷入時間</th></tr></thead>
                 <tbody>
                   ${group.records.map(sub => {
-                    // ★ 顏色區分邏輯 (詳細紀錄表格)
+// ★ 顏色區分邏輯 (詳細紀錄表格)
                     const subType = sub.TaskType || sub.taskType || '未註記';
                     let subTypeBadge = 'bg-secondary';
                     if (subType === '氣送') subTypeBadge = 'bg-info text-dark';
-                    else if (subType === '取消領藥') subTypeBadge = 'bg-danger text-white'; // ★ 新增這行
+                    else if (subType === '取消領藥') subTypeBadge = 'bg-danger text-white'; // 👈 新增這行：讓展開明細也顯示紅色
                     else if (subType !== '未註記') subTypeBadge = 'bg-warning text-dark';
                     
                     return `<tr><td>${sub.rxDate}</td><td><span class="badge ${subTypeBadge}">${subType}</span></td><td>${sub.staffName}</td><td>${sub.time}</td></tr>`;
