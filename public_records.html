@@ -176,7 +176,7 @@
       if (uniqueTypes.includes(currentVal)) select.value = currentVal;
     }
 
-    function renderMeds() {
+function renderMeds() {
       const dispFilter = document.getElementById('filterMedDisp').value.trim().toLowerCase();
       const chartFilter = document.getElementById('filterMedChart').value.trim().toLowerCase();
       
@@ -192,30 +192,50 @@
         return;
       }
 
+      // ★ 修正 1：改變群組邏輯，改用「領藥號 + 處方日期 + 病歷號」作為唯一鍵值 (Unique Key)
       const groupedData = {};
       filtered.forEach(r => {
-        if (!groupedData[r.dispNo]) groupedData[r.dispNo] = { dateStr: r.dateStr, chartNo: r.chartNo, records: [] };
-        groupedData[r.dispNo].records.push(r);
+        // 如果後端有傳回 barcode 就用 barcode，否則就自己組合唯一的 Key
+        const uniqueKey = r.barcode || `${r.dispNo}_${r.rxDate}_${r.chartNo}`;
+
+        if (!groupedData[uniqueKey]) {
+          groupedData[uniqueKey] = { 
+            dispNo: r.dispNo, // 特別保留 dispNo 在外層，供稍後排序用
+            dateStr: r.dateStr, 
+            chartNo: r.chartNo, 
+            records: [] 
+          };
+        }
+        groupedData[uniqueKey].records.push(r);
       });
 
-      const sortedDispNos = Object.keys(groupedData).sort((a, b) => {
-        const numA = parseInt(a, 10);
-        const numB = parseInt(b, 10);
-        if (!isNaN(numA) && !isNaN(numB)) return numA - numB; 
-        return a.localeCompare(b); 
+      // ★ 修正 2：對 Unique Key 進行排序，但排序邏輯依舊看裡面的「領藥號」由小至大
+      const sortedKeys = Object.keys(groupedData).sort((a, b) => {
+        const numA = parseInt(groupedData[a].dispNo, 10);
+        const numB = parseInt(groupedData[b].dispNo, 10);
+        
+        if (!isNaN(numA) && !isNaN(numB)) {
+          if (numA === numB) {
+            // 如果剛好遇到不同天但領藥號相同的，用日期稍微排一下順序
+            return a.localeCompare(b);
+          }
+          return numA - numB; 
+        } 
+        return groupedData[a].dispNo.localeCompare(groupedData[b].dispNo); 
       });
 
       let html = '';
-      sortedDispNos.forEach((dispNo, index) => {
-        const group = groupedData[dispNo];
+      sortedKeys.forEach((key, index) => {
+        const group = groupedData[key];
+        const dispNo = group.dispNo; // 畫面上顯示用的領藥號
         const collapseId = `collapseMed_${index}`;
         const latestRecord = group.records[0];
 
-// ★ 顏色區分邏輯 (主表格)
+        // ★ 顏色區分邏輯 (主表格)
         const latestType = latestRecord.TaskType || latestRecord.taskType || '未註記';
         let typeBadge = 'bg-secondary';
         if (latestType === '氣送') typeBadge = 'bg-info text-dark';
-        else if (latestType === '取消領藥') typeBadge = 'bg-danger text-white'; // 👈 新增這行：讓主表格顯示紅色標籤
+        else if (latestType === '取消領藥') typeBadge = 'bg-danger text-white'; // 新增的紅色標籤
         else if (latestType !== '未註記') typeBadge = 'bg-warning text-dark';
 
         html += `
@@ -241,11 +261,11 @@
                 <thead class="table-light"><tr><th>處方日期</th><th>傳送方式</th><th>經手人員</th><th>刷入時間</th></tr></thead>
                 <tbody>
                   ${group.records.map(sub => {
-// ★ 顏色區分邏輯 (詳細紀錄表格)
+                    // ★ 顏色區分邏輯 (詳細紀錄表格)
                     const subType = sub.TaskType || sub.taskType || '未註記';
                     let subTypeBadge = 'bg-secondary';
                     if (subType === '氣送') subTypeBadge = 'bg-info text-dark';
-                    else if (subType === '取消領藥') subTypeBadge = 'bg-danger text-white'; // 👈 新增這行：讓展開明細也顯示紅色
+                    else if (subType === '取消領藥') subTypeBadge = 'bg-danger text-white'; // 新增的紅色標籤
                     else if (subType !== '未註記') subTypeBadge = 'bg-warning text-dark';
                     
                     return `<tr><td>${sub.rxDate}</td><td><span class="badge ${subTypeBadge}">${subType}</span></td><td>${sub.staffName}</td><td>${sub.time}</td></tr>`;
