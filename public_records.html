@@ -215,6 +215,7 @@
         const latestType = latestRecord.TaskType || latestRecord.taskType || '未註記';
         let typeBadge = 'bg-secondary';
         if (latestType === '氣送') typeBadge = 'bg-info text-dark';
+        else if (latestType === '取消領藥') typeBadge = 'bg-danger text-white'; // ★ 新增這行
         else if (latestType !== '未註記') typeBadge = 'bg-warning text-dark';
 
         html += `
@@ -244,6 +245,7 @@
                     const subType = sub.TaskType || sub.taskType || '未註記';
                     let subTypeBadge = 'bg-secondary';
                     if (subType === '氣送') subTypeBadge = 'bg-info text-dark';
+                    else if (subType === '取消領藥') subTypeBadge = 'bg-danger text-white'; // ★ 新增這行
                     else if (subType !== '未註記') subTypeBadge = 'bg-warning text-dark';
                     
                     return `<tr><td>${sub.rxDate}</td><td><span class="badge ${subTypeBadge}">${subType}</span></td><td>${sub.staffName}</td><td>${sub.time}</td></tr>`;
