@@ -263,7 +263,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 // ==========================================
 // 各項獨立輔助函數
 // ==========================================
-function addCardToUI(data, cardId, isPending, isDuplicate = false) {
+function addCardToUI(data, cardId, isPending, isDuplicate = false, isCancel = false) {
   const container = document.getElementById('cardContainer');
   const emptyState = document.getElementById('emptyState');
   if (emptyState) emptyState.style.display = 'none';
@@ -278,11 +278,15 @@ function addCardToUI(data, cardId, isPending, isDuplicate = false) {
   card.innerHTML = `
     <div class="card-body py-3 px-4">
       <div class="d-flex justify-content-between align-items-center mb-2">
-        <h3 class="m-0 text-success fw-bold">領藥號：${data.dispenseNo} ${isDuplicate ? '<span class="badge bg-warning text-dark fs-6 ms-2">重複刷入</span>' : ''}</h3>
+        <h3 class="m-0 ${isCancel ? 'text-danger' : 'text-success'} fw-bold">領藥號：${data.dispenseNo} 
+          ${isDuplicate && !isCancel ? '<span class="badge bg-warning text-dark fs-6 ms-2">重複刷入</span>' : ''}
+          ${isCancel ? '<span class="badge bg-danger text-white fs-6 ms-2">取消領藥</span>' : ''}
+        </h3>
         <span class="text-muted fs-4">${timeString}</span>
       </div>
       <div class="row">
-        <div class="col-12 fs-5 text-secondary">病歷號：<span class="fw-bold text-dark">${data.chartNo}</span> | 處方日期：${data.rxDate}</div>
+        <div class="col-12 fs-5 text-secondary">病歷號：<span class="fw-bold text-dark">${data.chartNo}</span> | 處方日期：${data.rxDate} 
+        ${isCancel ? `<span class="badge bg-danger ms-2">${data.type}</span>` : ''}</div>
       </div>
     </div>`;
   container.insertBefore(card, container.firstChild);
