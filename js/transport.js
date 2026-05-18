@@ -98,30 +98,68 @@ document.addEventListener('DOMContentLoaded', async () => {
         const rxDate = dateMatch ? dateMatch[1] : '';
 
         const itemKey = `${dispenseNo}-${rxDate}`;
-        const isNewItem = !scannedItems.has(itemKey);
-        const cardId = 'card_' + Date.now();
-
-        const dataForCard = { chartNo, dispenseNo, rxDate, staffName: transName, type: '傳送' };
+        const isNewItem = !pScannedItems.has(itemKey);
         
-        if (isNewItem) {
-          scannedItems.add(itemKey);
-          addCardToUI(dataForCard, cardId, true); 
-          if(totalCountSpan) totalCountSpan.textContent = scannedItems.size;
-        } else {
-          addCardToUI(dataForCard, cardId, true, true); 
-        }
-        barcodeInput.value = '';
+        let finalTaskType = '氣送'; // 預設狀態
+        let isDuplicateLabel = false;
+        let isCancelDispense = false;
 
-        const result = await callGAS('logDischargeMeds', {
-          date: document.getElementById('medDate').value,
+        if (isNewItem) {
+          pScannedItems.add(itemKey);
+        } else {
+          playErrorSound();
+          const { value: userChoice } = await Swal.fire({
+            title: '⚠️ 重複刷入提示',
+            text: `領藥號 ${dispenseNo} 剛剛已經刷入過了！請問您要：`,
+            icon: 'warning',
+            showDenyButton: true,
+            showCancelButton: true,
+            confirmButtonText: '覆蓋重刷 (維持氣送)',
+            denyButtonText: '取消領藥',
+            cancelButtonText: '取消動作 (不記錄)',
+            confirmButtonColor: '#198754',
+            denyButtonColor: '#dc3545',
+            allowOutsideClick: false
+          });
+
+          if (userChoice === true) {
+            finalTaskType = '氣送';
+            isDuplicateLabel = true;
+          } else if (userChoice === false) {
+            finalTaskType = '取消領藥';
+            isDuplicateLabel = true;
+            isCancelDispense = true;
+          } else {
+            pBarcodeInput.value = '';
+            pBarcodeInput.focus();
+            return;
+          }
+        }
+
+        const payload = {
+          date: pDateInput.value,
           barcode: barcodeValue,
-          type: '傳送',
-          staffId: transId,
-          staffName: transName,
+          type: finalTaskType, // 動態狀態
+          staffId: currentPharmaId,
+          staffName: currentPharmaName,
           chartNo: chartNo,
           dispenseNo: dispenseNo,
           rxDate: rxDate
-        });
+        };
+
+        const cardId = 'p_card_' + Date.now();
+        
+        if (isNewItem) {
+          addPneumaticCardToUI(payload, cardId, true); 
+          pTotalCountSpan.textContent = pScannedItems.size;
+        } else {
+          addPneumaticCardToUI(payload, cardId, true, isDuplicateLabel, isCancelDispense); 
+        }
+        
+        pBarcodeInput.value = '';
+        pBarcodeInput.focus();
+
+        const result = await callGAS('logDischargeMeds', payload);
         
         if (result.success) {
           playSuccessSound(); 
