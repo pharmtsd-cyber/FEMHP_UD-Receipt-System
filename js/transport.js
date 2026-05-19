@@ -163,16 +163,28 @@ barcodeInput.addEventListener('keypress', async (e) => {
 
         const dataForCard = { chartNo, dispenseNo, rxDate, staffName: transName, type: finalTaskType };
         
+        // ★ 記錄刷入的當下時間，避免重新整理後時間跑掉
+        const now = new Date();
+        dataForCard.timeString = `${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}:${now.getSeconds().toString().padStart(2,'0')}`;
+        
         if (isNewItem) {
           addCardToUI(dataForCard, cardId, true); 
           if(totalCountSpan) totalCountSpan.textContent = scannedItems.size;
         } else {
-          // 傳入新參數來渲染畫面
           addCardToUI(dataForCard, cardId, true, isDuplicateLabel, isCancelDispense); 
         }
+
+        // ★ 將此筆紀錄推入 LocalStorage 儲存
+        localData.items.push({
+          data: dataForCard,
+          cardId: cardId,
+          isDuplicateLabel: isDuplicateLabel,
+          isCancelDispense: isCancelDispense
+        });
+        localStorage.setItem(localKey, JSON.stringify(localData));
         
         barcodeInput.value = '';
-        barcodeInput.focus(); // 確保焦點回去
+        barcodeInput.focus();
 
         // 將最後決定的狀態傳給後端
         const result = await callGAS('logDischargeMeds', {
@@ -298,7 +310,7 @@ function addCardToUI(data, cardId, isPending, isDuplicate = false, isCancel = fa
   card.className = `card mb-3 shadow-sm ${isPending ? 'border-warning' : 'border-success'} border-2`;
   
   const now = new Date();
-  const timeString = `${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}:${now.getSeconds().toString().padStart(2,'0')}`;
+  const timeString = data.timeString || `${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}:${now.getSeconds().toString().padStart(2,'0')}`;
 
   card.innerHTML = `
     <div class="card-body py-3 px-4">
