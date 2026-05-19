@@ -380,11 +380,21 @@ async function loadTodayDocs() {
   const res = await callGAS('getTodayDocRecords');
 
   if (res.success) {
-    if (res.data.length === 0) {
-      container.innerHTML = '<div class="text-muted text-center py-5 fs-5">今日尚無未結案的紀錄</div>';
+    // ★ 新增時間過濾：定義「兩日內 (昨天與今天)」的時間界線
+    const now = new Date();
+    const limitDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1); // 昨天的凌晨 00:00:00
+
+    // 過濾出兩日內的資料
+    const filteredTwoDaysData = res.data.filter(item => {
+      const itemTime = new Date(item.sendTime || item.SendTime || 0);
+      return itemTime >= limitDate;
+    });
+
+    if (filteredTwoDaysData.length === 0) {
+      container.innerHTML = '<div class="text-muted text-center py-5 fs-5">近兩日尚無未結案的紀錄</div>';
     } else {
-      // ★ 修正：在資料成功取回後進行排序 (最新時間排最上)
-      const sortedData = res.data.sort((a, b) => {
+      // 針對兩日內的資料進行排序 (最新時間排最上)
+      const sortedData = filteredTwoDaysData.sort((a, b) => {
         const timeA = new Date(a.sendTime || a.SendTime || 0);
         const timeB = new Date(b.sendTime || b.SendTime || 0);
         return timeB - timeA;
