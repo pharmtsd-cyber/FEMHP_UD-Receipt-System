@@ -303,7 +303,21 @@ document.addEventListener('DOMContentLoaded', () => {
   const pEmptyState = document.getElementById('pneumaticEmptyState');
   
   const pScannedItems = new Set();
+  // ★ 新增：LocalStorage 記憶功能 (藥師氣送端)
+  const localKeyPharma = `medLog_pharma_${currentPharmaId}`;
+  let localDataPharma = JSON.parse(localStorage.getItem(localKeyPharma) || '{"date":"","items":[]}');
 
+  if (localDataPharma.date !== today) {
+    localDataPharma = { date: today, items: [] };
+    localStorage.setItem(localKeyPharma, JSON.stringify(localDataPharma));
+  } else {
+    localDataPharma.items.forEach(item => {
+      pScannedItems.add(`${item.payload.dispenseNo}-${item.payload.rxDate}`);
+      addPneumaticCardToUI(item.payload, item.cardId, true, item.isDuplicateLabel, item.isCancelDispense);
+    });
+    if(pTotalCountSpan) pTotalCountSpan.textContent = pScannedItems.size;
+  }
+  
   const pneumaticTab = document.getElementById('pneumatic-tab');
   if(pneumaticTab) {
     pneumaticTab.addEventListener('shown.bs.tab', () => {
@@ -384,13 +398,17 @@ document.addEventListener('DOMContentLoaded', () => {
         const payload = {
           date: pDateInput.value,
           barcode: barcodeValue,
-          type: finalTaskType, // 動態狀態
+          type: finalTaskType, 
           staffId: currentPharmaId,
           staffName: currentPharmaName,
           chartNo: chartNo,
           dispenseNo: dispenseNo,
           rxDate: rxDate
         };
+
+        // ★ 記錄刷入的當下時間
+        const now = new Date();
+        payload.timeString = `${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}:${now.getSeconds().toString().padStart(2,'0')}`;
 
         const cardId = 'p_card_' + Date.now();
         
@@ -400,6 +418,15 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
           addPneumaticCardToUI(payload, cardId, true, isDuplicateLabel, isCancelDispense); 
         }
+
+        // ★ 將氣送紀錄推入 LocalStorage 儲存
+        localDataPharma.items.push({
+          payload: payload,
+          cardId: cardId,
+          isDuplicateLabel: isDuplicateLabel,
+          isCancelDispense: isCancelDispense
+        });
+        localStorage.setItem(localKeyPharma, JSON.stringify(localDataPharma));
         
         pBarcodeInput.value = '';
         pBarcodeInput.focus();
@@ -429,7 +456,7 @@ function addPneumaticCardToUI(data, cardId, isPending, isDuplicate = false, isCa
     card.className = `card mb-3 shadow-sm ${isPending ? 'border-warning' : 'border-success'} border-2`;
     
     const now = new Date();
-    const timeString = `${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}:${now.getSeconds().toString().padStart(2,'0')}`;
+    const timeString = data.timeString || `${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}:${now.getSeconds().toString().padStart(2,'0')}`;
 
     card.innerHTML = `
       <div class="card-body py-3 px-4">
