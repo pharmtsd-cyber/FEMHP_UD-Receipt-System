@@ -65,10 +65,27 @@ document.addEventListener('DOMContentLoaded', async () => {
     loadTodayDocs();
   }
 
-  // 4. 出院帶藥條碼輸入邏輯
+// 4. 出院帶藥條碼輸入邏輯
   const barcodeInput = document.getElementById('barcodeInput');
   const totalCountSpan = document.getElementById('totalCount');
   const scannedItems = new Set();
+  
+  // ★ 新增：LocalStorage 記憶功能 (傳送端)
+  const localKey = `medLog_transport_${transId}`;
+  let localData = JSON.parse(localStorage.getItem(localKey) || '{"date":"","items":[]}');
+
+  if (localData.date !== today) {
+    // 如果日期不是今天，清空舊紀錄
+    localData = { date: today, items: [] };
+    localStorage.setItem(localKey, JSON.stringify(localData));
+  } else {
+    // 如果是今天，把畫面與防重複機制 (Set) 還原
+    localData.items.forEach(item => {
+      scannedItems.add(`${item.data.dispenseNo}-${item.data.rxDate}`);
+      addCardToUI(item.data, item.cardId, true, item.isDuplicateLabel, item.isCancelDispense);
+    });
+    if(totalCountSpan) totalCountSpan.textContent = scannedItems.size;
+  }
   
   if(barcodeInput) {
     barcodeInput.focus();
