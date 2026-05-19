@@ -71,7 +71,7 @@
             <div class="table-responsive">
               <table class="table table-hover align-middle fs-5 border">
                 <thead class="table-success">
-                  <tr><th>日期</th><th>領藥號</th><th>病歷號</th><th>傳送方式</th><th>最新進度 (人員與時間)</th><th>總筆數</th><th>操作</th></tr>
+                  <tr><th>處方日期</th><th>領藥號</th><th>病歷號</th><th>傳送方式</th><th>最新進度 (人員與時間)</th><th>總筆數</th><th>操作</th></tr>
                 </thead>
                 <tbody id="medRecordsBody"></tbody>
               </table>
@@ -177,14 +177,29 @@
       if (uniqueTypes.includes(currentVal)) select.value = currentVal;
     }
 
-function renderMeds() {
+// 建立一個輔助函式：將 20260205 轉成 2026/02/05 格式顯示
+    function formatRxDate(rawStr) {
+      if (!rawStr || rawStr.length !== 8) return rawStr;
+      return `${rawStr.substring(0, 4)}/${rawStr.substring(4, 6)}/${rawStr.substring(6, 8)}`;
+    }
+
+    function renderMeds() {
       const dispFilter = document.getElementById('filterMedDisp').value.trim().toLowerCase();
       const chartFilter = document.getElementById('filterMedChart').value.trim().toLowerCase();
+      
+      // ★ 取得畫面上方篩選器的日期，並拔除連字號 (例如 "2026-05-19" 轉成 "20260519") 供處方日期比對
+      const startVal = document.getElementById('startDate').value.replace(/-/g, '');
+      const endVal = document.getElementById('endDate').value.replace(/-/g, '');
       
       const filtered = allMedsData.filter(r => {
         const matchDisp = (r.dispNo || '').toLowerCase().includes(dispFilter);
         const matchChart = (r.chartNo || '').toLowerCase().includes(chartFilter);
-        return matchDisp && matchChart;
+        
+        // ★ 核心修改：讓前端篩選器改為比對處方日期 (RxDate)
+        const rawRx = (r.rxDate || '').replace(/[^0-9]/g, ''); // 確保只有純數字
+        const matchDate = (!startVal || rawRx >= startVal) && (!endVal || rawRx <= endVal);
+        
+        return matchDisp && matchChart && matchDate;
       });
 
       const tbody = document.getElementById('medRecordsBody');
@@ -193,16 +208,16 @@ function renderMeds() {
         return;
       }
 
-      // ★ 修正 1：改變群組邏輯，改用「領藥號 + 處方日期 + 病歷號」作為唯一鍵值 (Unique Key)
+      // 群組邏輯：以「條碼/唯一鍵值」歸戶
       const groupedData = {};
       filtered.forEach(r => {
-        // 如果後端有傳回 barcode 就用 barcode，否則就自己組合唯一的 Key
         const uniqueKey = r.barcode || `${r.dispNo}_${r.rxDate}_${r.chartNo}`;
 
         if (!groupedData[uniqueKey]) {
           groupedData[uniqueKey] = { 
-            dispNo: r.dispNo, // 特別保留 dispNo 在外層，供稍後排序用
+            dispNo: r.dispNo,
             dateStr: r.dateStr, 
+            rxDate: r.rxDate, // 保留處方日期
             chartNo: r.chartNo, 
             records: [] 
           };
@@ -210,16 +225,12 @@ function renderMeds() {
         groupedData[uniqueKey].records.push(r);
       });
 
-      // ★ 修正 2：對 Unique Key 進行排序，但排序邏輯依舊看裡面的「領藥號」由小至大
+      // 排序邏輯：依領藥號由小至大
       const sortedKeys = Object.keys(groupedData).sort((a, b) => {
         const numA = parseInt(groupedData[a].dispNo, 10);
         const numB = parseInt(groupedData[b].dispNo, 10);
-        
         if (!isNaN(numA) && !isNaN(numB)) {
-          if (numA === numB) {
-            // 如果剛好遇到不同天但領藥號相同的，用日期稍微排一下順序
-            return a.localeCompare(b);
-          }
+          if (numA === numB) return a.localeCompare(b);
           return numA - numB; 
         } 
         return groupedData[a].dispNo.localeCompare(groupedData[b].dispNo); 
@@ -228,26 +239,26 @@ function renderMeds() {
       let html = '';
       sortedKeys.forEach((key, index) => {
         const group = groupedData[key];
-        const dispNo = group.dispNo; // 畫面上顯示用的領藥號
+        const dispNo = group.dispNo; 
         const collapseId = `collapseMed_${index}`;
         const latestRecord = group.records[0];
 
-        // ★ 顏色區分邏輯 (主表格)
+        // 顏色區分邏輯
         const latestType = latestRecord.TaskType || latestRecord.taskType || '未註記';
         let typeBadge = 'bg-secondary';
         if (latestType === '氣送') typeBadge = 'bg-info text-dark';
-        else if (latestType === '取消領藥') typeBadge = 'bg-danger text-white'; // 新增的紅色標籤
+        else if (latestType === '取消領藥') typeBadge = 'bg-danger text-white'; 
         else if (latestType !== '未註記') typeBadge = 'bg-warning text-dark';
 
         html += `
           <tr>
-            <td>${group.dateStr}</td>
+            <td>${formatRxDate(group.rxDate)}</td>
             <td class="text-success fw-bold">${dispNo}</td>
             <td>${group.chartNo}</td>
             <td><span class="badge ${typeBadge} fs-6">${latestType}</span></td>
             <td>
               <span class="text-primary fw-bold">${latestRecord.staffName}</span> 
-              <span class="text-muted small ms-1">(${latestRecord.time})</span>
+              <span class="text-muted small ms-1">(${latestRecord.dateStr} ${latestRecord.time})</span>
             </td>
             <td><span class="badge bg-secondary rounded-pill">${group.records.length} 筆</span></td>
             <td>
@@ -259,17 +270,17 @@ function renderMeds() {
           <tr class="collapse sub-table-row" id="${collapseId}">
             <td colspan="7" class="p-3">
               <table class="table table-sm table-bordered mb-0 bg-white">
-                <thead class="table-light"><tr><th>處方日期</th><th>傳送方式</th><th>經手人員</th><th>刷入時間</th></tr></thead>
+                <thead class="table-light"><tr><th>處方日期</th><th>傳送方式</th><th>經手人員</th><th>刷入日期與時間</th></tr></thead>
                 <tbody>
                   ${group.records.map(sub => {
-                    // ★ 顏色區分邏輯 (詳細紀錄表格)
                     const subType = sub.TaskType || sub.taskType || '未註記';
                     let subTypeBadge = 'bg-secondary';
                     if (subType === '氣送') subTypeBadge = 'bg-info text-dark';
-                    else if (subType === '取消領藥') subTypeBadge = 'bg-danger text-white'; // 新增的紅色標籤
+                    else if (subType === '取消領藥') subTypeBadge = 'bg-danger text-white'; 
                     else if (subType !== '未註記') subTypeBadge = 'bg-warning text-dark';
                     
-                    return `<tr><td>${sub.rxDate}</td><td><span class="badge ${subTypeBadge}">${subType}</span></td><td>${sub.staffName}</td><td>${sub.time}</td></tr>`;
+                    // ★ 修正 3：展開明細的最後一欄也同步改為完整的 (LogDate + Time) 紀錄
+                    return `<tr><td>${formatRxDate(sub.rxDate)}</td><td><span class="badge ${subTypeBadge}">${subType}</span></td><td>${sub.staffName}</td><td>${sub.dateStr} ${sub.time}</td></tr>`;
                   }).join('')}
                 </tbody>
               </table>
