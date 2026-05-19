@@ -71,14 +71,24 @@ function renderPharmaDocs() {
   const wardFilter = document.getElementById('filterPharmaWard') ? document.getElementById('filterPharmaWard').value.trim().toLowerCase() : '';
   const dispFilter = document.getElementById('filterPharmaDisp') ? document.getElementById('filterPharmaDisp').value.trim().toLowerCase() : '';
 
-  // 2. 先對全域資料進行初步過濾
+  // ★ 新增時間過濾：定義「兩日內 (昨天與今天)」的時間界線
+  const now = new Date();
+  const limitDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1); // 昨天的凌晨 00:00:00
+
+  // 2. 先對全域資料進行初步過濾 (加上兩日內的條件)
   const filteredData = allPharmaData.filter(item => {
     const rawSearchText = `${item.SendNote || ''} ${item.ReceiveNote || ''} ${item.Quantity || ''} ${item.PickupNo || ''} ${item.SenderName || ''}`.toLowerCase();
     const matchType = typeFilter === "" ? true : item.DocType === typeFilter;
     const matchChart = (item.ChartNo || '').toLowerCase().includes(chartFilter);
     const matchWard = (item.Ward || '').toLowerCase().includes(wardFilter);
     const matchDisp = rawSearchText.includes(dispFilter);
-    return matchType && matchChart && matchWard && matchDisp;
+    
+    // ★ 檢查送件時間是否在兩日內
+    const itemTime = new Date(item.SendTime || 0);
+    const matchTime = itemTime >= limitDate;
+
+    // 將 matchTime 加入最終判斷
+    return matchType && matchChart && matchWard && matchDisp && matchTime;
   });
 
   // 3. 取得今天的 年、月、日
