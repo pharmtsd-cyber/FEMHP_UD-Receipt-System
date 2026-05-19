@@ -236,10 +236,23 @@ barcodeInput.addEventListener('keypress', async (e) => {
           if (requirement !== '隱藏') {
             const isRequired = requirement === '必填' ? 'required' : '';
             const star = requirement === '必填' ? '<span class="text-danger">*</span>' : '<span class="text-muted fs-6">(選填)</span>';
+            
+            // ★ 新增這段：客製化不同欄位的提示文字 (Placeholder)
+            let customPlaceholder = `請輸入${key}...`; // 預設文字
+            if (key === '病房床號') {
+              customPlaceholder = '例如: 08A011';
+            } else if (key === '數量/張數') {
+              customPlaceholder = '例如: 1 或 2';
+            } else if (key === '領藥號') {
+              customPlaceholder = '例如: 70001 或 80001';
+            } else if (key === '病歷號') {
+              customPlaceholder = '例如: A12345';
+            }
+
             html += `
               <div class="mb-3 text-start">
                 <label class="form-label fw-bold fs-5">${key} ${star}</label>
-                <input type="text" class="form-control form-control-lg dynamic-input" data-key="${key}" placeholder="請輸入${key}" ${isRequired}>
+                <input type="text" class="form-control form-control-lg dynamic-input" data-key="${key}" placeholder="${customPlaceholder}" ${isRequired}>
               </div>
             `;
           }
