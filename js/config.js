@@ -38,18 +38,17 @@ async function callGAS(action, dataObj = {}) {
 
     // 處理 503 流量管制 (從上一次優化保留)
     if (!response.ok) {
-      if (response.status === 503) {
+      if (response.status === 503 || response.status === 502) {
         Swal.fire({
           icon: 'warning',
-          title: '系統忙碌中',
-          text: '目前連線人數較多，請稍等幾秒後再重試。',
+          title: '伺服器連線異常',
+          text: `目前伺服器無回應 (${response.status})，請稍等幾秒後再重試。`,
           confirmButtonColor: '#2C5343'
         });
-        return { success: false, message: '伺服器忙碌中 (503)' };
+        return { success: false, message: `伺服器連線異常 (${response.status})` };
       }
       throw new Error(`HTTP error! status: ${response.status}`);
     }
-
     const result = await response.json();
     return result;
 
