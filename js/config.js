@@ -1,21 +1,54 @@
 // === 系統共用設定檔 (config.js) ===
 
-// 1. 微軟 Power Automate 的 API 總機網址 (請填入您的真實網址)
-const API_URL = "https://defaultf611cf53b6864814b03558908d4900.be.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/b8885468ce9e4e91bd513632ce0c9bb2/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=-utvV9pjf3BeN987pdFfQjkB7OdCoYWUbj2c9hrUv6E";
+// 1. 原本的總機 (負責寫入/修改/登入/狀態更新)
+const API_URL_WRITE = "https://defaultf611cf53b6864814b03558908d4900.be.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/b8885468ce9e4e91bd513632ce0c9bb2/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=-utvV9pjf3BeN987pdFfQjkB7OdCoYWUbj2c9hrUv6E";
 
-// 2. 封裝與後端溝通的非同步函數
+// 2. 新增的查詢專機 (負責純讀取資料) -> 請填入你新建流程的 URL
+const API_URL_READ = "https://defaultf611cf53b6864814b03558908d4900.be.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/81f4781d6d1c4b96b98e81b91259049c/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=2IkOg3OCv_cwrTQvPYaK42seYgN0ZSs0QhBtFN8N1eA";
+
+// 3. 定義哪些動作屬於「純讀取」
+const READ_ACTIONS = [
+  'getConfigData',
+  'getTodayDocRecords',
+  'getPharmaReplyOptions',
+  'getPharmaDocRecords',
+  'getDailyRecords',
+  'getPublicDocRecords',
+  'getStaffList'
+];
+
 async function callGAS(action, dataObj = {}) {
-  // 【升級核心】：系統會自動幫您把舊有的平整資料，裝進 payload 箱子裡！
-  const payload = { action: action, payload: dataObj };
+  // ★ 核心優化：智慧分流。如果 action 在 READ_ACTIONS 名單內，就送往 READ 網址；否則送往 WRITE 網址。
+  const targetUrl = READ_ACTIONS.includes(action) ? API_URL_READ : API_URL_WRITE;
+  
+  // 處理特殊符號，防止中斷
+  const sanitizedObj = {};
+  for (let key in dataObj) {
+    sanitizedObj[key] = typeof dataObj[key] === 'string' ? encodeURIComponent(dataObj[key]) : dataObj[key];
+  }
+
+  const payload = { action: action, payload: sanitizedObj };
   
   try {
-    const response = await fetch(API_URL, {
+    const response = await fetch(targetUrl, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(payload) // 送出標準化的包裹
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload) 
     });
+
+    // 處理 503 流量管制 (從上一次優化保留)
+    if (!response.ok) {
+      if (response.status === 503) {
+        Swal.fire({
+          icon: 'warning',
+          title: '系統忙碌中',
+          text: '目前連線人數較多，請稍等幾秒後再重試。',
+          confirmButtonColor: '#2C5343'
+        });
+        return { success: false, message: '伺服器忙碌中 (503)' };
+      }
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
 
     const result = await response.json();
     return result;
@@ -25,8 +58,8 @@ async function callGAS(action, dataObj = {}) {
     if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
       Swal.fire({
         icon: 'error',
-        title: '網路連線遭阻擋',
-        html: `系統無法連接至後端資料庫。<br>請確認網路連線。`,
+        title: '網路連線異常',
+        html: `系統無法連接至後端伺服器。<br>請確認網路連線。`,
         confirmButtonColor: '#2C5343'
       });
     } else {
@@ -36,7 +69,7 @@ async function callGAS(action, dataObj = {}) {
   }
 }
 
-// 3. 全局共用的 Toast 提示工具 (保留您原本的設定)
+// 4. 全局共用的 Toast
 const Toast = Swal.mixin({
   toast: true,
   position: 'top-end',
