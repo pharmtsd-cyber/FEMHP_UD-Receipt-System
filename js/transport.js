@@ -291,10 +291,14 @@ barcodeInput.addEventListener('keypress', async (e) => {
       const res = await callGAS('submitDocTransfer', payload);
 
       if (res.success) {
-        Swal.fire({ icon: 'success', title: '送件成功', text: `系統單號: ${res.signId}`, timer: 2000 });
+        Swal.fire({ icon: 'success', title: '送件成功', text: `系統單號: ${res.signId}`, timer: 1500, showConfirmButton: false });
         docForm.reset();
         document.getElementById('dynamicFieldsContainer').innerHTML = '<div class="text-muted text-center py-4 fs-5">請先選擇送件類型</div>';
-        loadTodayDocs(); 
+        
+        // 延遲 1.5 秒再重整，確保雲端已經將資料寫死，避免讀到舊資料
+        setTimeout(() => {
+          loadTodayDocs(); 
+        }, 1500);
       } else {
         Swal.fire('失敗', res.message, 'error');
       }
@@ -543,7 +547,10 @@ async function acknowledgeReturn(signId) {
 
     if (res.success) {
       Swal.fire({ icon: 'success', title: '已成功領回並結案', timer: 1500, showConfirmButton: false });
-      loadTodayDocs(); // 自動重整畫面，讓卡片消失
+      // 延遲 1.5 秒再重整畫面
+      setTimeout(() => {
+        loadTodayDocs(); 
+      }, 1500);
     } else {
       Swal.fire('發生錯誤', res.message || '領回失敗，請稍後再試', 'error');
     }
