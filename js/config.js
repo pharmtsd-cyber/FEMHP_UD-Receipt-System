@@ -1,7 +1,7 @@
 // === 系統共用設定檔 (config.js) ===
 
 // 1. 原本的總機 (負責寫入/修改/登入/狀態更新)
-const API_URL_WRITE = "https://defaultf611cf53b6864814b03558908d4900.be.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/b8885468ce9e4e91bd513632ce0c9bb2/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=-utvV9pjf3BeN987pdFfQjkB7OdCoYWUbj2c9hrUv6E";
+const API_URL_WRITE = "https://defaultf611cf53b6864814b03558908d4900.be.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/2309b831793f4f4fa7cf3f2a7e72ab4a/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=rqleQ5OYOGNFAk5ozBhVjE8Sxs_Pufr6aQ3DDI-ONV4";
 
 // 2. 新增的查詢專機 (負責純讀取資料) -> 請填入你新建流程的 URL
 const API_URL_READ = "https://defaultf611cf53b6864814b03558908d4900.be.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/81f4781d6d1c4b96b98e81b91259049c/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=2IkOg3OCv_cwrTQvPYaK42seYgN0ZSs0QhBtFN8N1eA";
