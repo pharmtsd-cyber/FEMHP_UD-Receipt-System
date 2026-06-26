@@ -18,13 +18,8 @@ async function callGAS(action, dataObj = {}, retries = 3) {
   const targetUrl = (API_URL_READ !== "" && READ_ACTIONS.includes(action)) 
                     ? API_URL_READ : API_URL_WRITE;
   
-  // 處理特殊符號 (如 + & %) 防止 JSON 傳輸中斷
-  const sanitizedObj = {};
-  for (let key in dataObj) {
-    sanitizedObj[key] = typeof dataObj[key] === 'string' ? encodeURIComponent(dataObj[key]) : dataObj[key];
-  }
-
-  const payload = { action: action, payload: sanitizedObj };
+  // ★ 修正：移除 encodeURIComponent 過度包裝，直接將 dataObj 放入 payload
+  const payload = { action: action, payload: dataObj };
   
   try {
     const response = await fetch(targetUrl, {
@@ -38,7 +33,6 @@ async function callGAS(action, dataObj = {}, retries = 3) {
       if ((response.status === 503 || response.status === 502) && retries > 0) {
         console.warn(`[${action}] 遭遇 ${response.status} 塞車，準備自動重試... (剩餘次數: ${retries})`);
         
-        // 如果畫面上已經有 SweetAlert 的載入遮罩，溫柔更新文字安撫人員
         if (Swal.isVisible()) {
           Swal.update({ title: '線路稍忙，系統自動重試中...' });
         }
@@ -46,11 +40,10 @@ async function callGAS(action, dataObj = {}, retries = 3) {
         // 暫停 2 秒讓伺服器喘息
         await new Promise(resolve => setTimeout(resolve, 2000));
 
-        // 呼叫自己進行重試，並將剩餘次數減 1
+        // 呼叫自己進行重試
         return await callGAS(action, dataObj, retries - 1);
       }
       
-      // 重試耗盡或遇到其他致命錯誤，拋出 Error 交給 catch 處理
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
@@ -59,7 +52,6 @@ async function callGAS(action, dataObj = {}, retries = 3) {
   } catch (error) {
     console.error(`[${action}] API 請求錯誤:`, error);
     
-    // 只有在重試耗盡，或完全斷網時，才彈出失敗視窗
     if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
       Swal.fire({
         icon: 'error',
