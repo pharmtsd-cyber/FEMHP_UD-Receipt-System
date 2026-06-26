@@ -17,9 +17,10 @@ const READ_ACTIONS = [
   'getStaffList'
 ];
 
-async function callGAS(action, dataObj = {}) {
-  // ★ 核心優化：智慧分流。如果 action 在 READ_ACTIONS 名單內，就送往 READ 網址；否則送往 WRITE 網址。
-  const targetUrl = READ_ACTIONS.includes(action) ? API_URL_READ : API_URL_WRITE;
+async function callGAS(action, dataObj = {}, retries = 3) {
+  // 自動判斷要打去哪個網址 (若尚未設定 READ_ACTIONS，可忽略或直接用 API_URL)
+  const targetUrl = (typeof READ_ACTIONS !== 'undefined' && READ_ACTIONS.includes(action)) 
+                    ? API_URL_READ : API_URL_WRITE;
   
   // 處理特殊符號，防止中斷
   const sanitizedObj = {};
@@ -36,35 +37,44 @@ async function callGAS(action, dataObj = {}) {
       body: JSON.stringify(payload) 
     });
 
-    // 處理 503 流量管制 (從上一次優化保留)
     if (!response.ok) {
-      if (response.status === 503 || response.status === 502) {
-        Swal.fire({
-          icon: 'warning',
-          title: '伺服器連線異常',
-          text: `目前伺服器無回應 (${response.status})，請稍等幾秒後再重試。`,
-          confirmButtonColor: '#2C5343'
-        });
-        return { success: false, message: `伺服器連線異常 (${response.status})` };
+      // ★ 核心優化：遇到 502 或 503 塞車時，啟動「無感自動重試」
+      if ((response.status === 503 || response.status === 502) && retries > 0) {
+        console.warn(`[${action}] 遭遇 ${response.status} 塞車，準備自動重試... (剩餘次數: ${retries})`);
+        
+        // 如果畫面上已經有 SweetAlert 的載入遮罩，更新文字安撫人員
+        if (Swal.isVisible()) {
+          Swal.update({ title: '線路稍忙，系統自動重試中...' });
+        }
+
+        // 暫停 2 秒 (2000 毫秒) 讓伺服器喘息
+        await new Promise(resolve => setTimeout(resolve, 2000));
+
+        // 呼叫自己進行重試，並將剩餘次數減 1
+        return await callGAS(action, dataObj, retries - 1);
       }
+      
+      // 如果重試 3 次都失敗，或是遇到其他的致命錯誤，才會拋出 Error
       throw new Error(`HTTP error! status: ${response.status}`);
     }
-    const result = await response.json();
-    return result;
+
+    return await response.json();
 
   } catch (error) {
     console.error(`[${action}] API 請求錯誤:`, error);
+    
+    // 只有在重試耗盡，或真的完全斷網時，才彈出失敗視窗
     if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
       Swal.fire({
         icon: 'error',
         title: '網路連線異常',
-        html: `系統無法連接至後端伺服器。<br>請確認網路連線。`,
+        html: `系統無法連接至雲端。<br>請確認網路連線是否正常。`,
         confirmButtonColor: '#2C5343'
       });
     } else {
-      Swal.fire('系統錯誤', '發生未知的連線問題，請稍後再試。', 'error');
+      Swal.fire('系統錯誤', '伺服器持續忙碌，請稍後重試。', 'error');
     }
-    return { success: false, message: '網路連線異常' };
+    return { success: false, message: '連線或伺服器異常' };
   }
 }
 
