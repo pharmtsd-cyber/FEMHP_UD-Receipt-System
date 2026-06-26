@@ -384,11 +384,10 @@ async function loadTodayDocs() {
   const res = await callGAS('getTodayDocRecords');
 
   if (res.success) {
-    // ★ 新增時間過濾：定義「兩日內 (昨天與今天)」的時間界線
+    // 定義「兩日內 (昨天與今天)」的時間界線
     const now = new Date();
-    const limitDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1); // 昨天的凌晨 00:00:00
+    const limitDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1); 
 
-    // 過濾出兩日內的資料
     const filteredTwoDaysData = res.data.filter(item => {
       const itemTime = new Date(item.sendTime || item.SendTime || 0);
       return itemTime >= limitDate;
@@ -397,7 +396,6 @@ async function loadTodayDocs() {
     if (filteredTwoDaysData.length === 0) {
       container.innerHTML = '<div class="text-muted text-center py-5 fs-5">近兩日尚無未結案的紀錄</div>';
     } else {
-      // 針對兩日內的資料進行排序 (最新時間排最上)
       const sortedData = filteredTwoDaysData.sort((a, b) => {
         const timeA = new Date(a.sendTime || a.SendTime || 0);
         const timeB = new Date(b.sendTime || b.SendTime || 0);
@@ -406,37 +404,47 @@ async function loadTodayDocs() {
 
       container.innerHTML = sortedData.map(item => {
         let details = [];
-        if (item.ward) details.push(`病房: <span class="fw-bold text-primary fs-5 align-middle">${item.ward}</span>`);
-        if (item.chartNo) details.push(`病歷: <span class="fw-bold text-dark fs-5 align-middle">${item.chartNo}</span>`);
         
-        // 數量與領藥號稍微放大 (fs-6) 以搭配整體比例
-        if (item.quantity) details.push(`數量: <span class="text-danger fw-bold fs-6 align-middle">${item.quantity}</span>`);
-        if (item.pickupNo) details.push(`領藥號: <span class="text-success fw-bold fs-6 align-middle">${item.pickupNo}</span>`);
+        // ★ 核心修正：同時相容小寫與大寫屬性名稱，確保資料一定抓得到
+        const wardVal = item.ward || item.Ward;
+        const chartVal = item.chartNo || item.ChartNo;
+        const qtyVal = item.quantity || item.Quantity;
+        const pickupVal = item.pickupNo || item.PickupNo;
 
-        const args = `'${item.signId}', '${item.type}', '${item.ward || ''}', '${item.chartNo || ''}', '${item.quantity || ''}', '${item.pickupNo || ''}', '${item.sendNote || ''}'`;
+        if (wardVal) details.push(`病房: <span class="fw-bold text-primary fs-5 align-middle">${wardVal}</span>`);
+        if (chartVal) details.push(`病歷: <span class="fw-bold text-dark fs-5 align-middle">${chartVal}</span>`);
+        
+        // 加上數量與領藥號，統一設定為 fs-5 搭配整體比例
+        if (qtyVal) details.push(`數量: <span class="text-danger fw-bold fs-5 align-middle">${qtyVal}</span>`);
+        if (pickupVal) details.push(`領藥號: <span class="text-success fw-bold fs-5 align-middle">${pickupVal}</span>`);
+
+        // 確保按鈕綁定的屬性也是有值的 (相容大小寫)
+        const args = `'${item.signId || item.SignId}', '${item.type || item.Type}', '${wardVal || ''}', '${chartVal || ''}', '${qtyVal || ''}', '${pickupVal || ''}', '${item.sendNote || item.SendNote || ''}'`;
 
         return `
         <div class="card mb-3 shadow-sm border-start border-4 ${item.status === '待藥師收單' ? 'border-warning' : (item.status === '退件' ? 'border-danger' : 'border-primary')}">
           <div class="card-body p-3">
             <div class="d-flex justify-content-between align-items-center mb-2">
               <span class="badge ${item.status === '待藥師收單' ? 'bg-warning text-dark' : (item.status === '退件' ? 'bg-danger' : 'bg-primary')} fs-6">${item.status}</span>
-              <span class="text-muted small">${item.sendTime}</span>
+              <span class="text-muted small">${item.sendTime || item.SendTime}</span>
             </div>
-            <h5 class="fw-bold text-dark mb-1">${item.type}</h5>
+            <h5 class="fw-bold text-dark mb-1">${item.type || item.Type}</h5>
             
             <div class="text-secondary mb-2 mt-2 lh-base">
               ${details.join('<span class="mx-2 text-black-50 fw-light">|</span>')}
             </div>
             
-            ${item.sendNote ? `<div class="text-danger small mb-2 bg-light p-1 rounded border"><i class="bi bi-chat-left-text me-1"></i>送件備註: ${item.sendNote}</div>` : ''}
+            ${(item.sendNote || item.SendNote) ? `<div class="text-danger small mb-2 bg-light p-1 rounded border"><i class="bi bi-chat-left-text me-1"></i>送件備註: ${item.sendNote || item.SendNote}</div>` : ''}
+            
+            ${(item.receiveNote || item.ReceiveNote) ? `<div class="text-primary small mb-2 bg-blue-light p-1 rounded border" style="background-color: #e7f1ff;"><i class="bi bi-capsule me-1"></i>藥師回覆: ${item.receiveNote || item.ReceiveNote}</div>` : ''}
             
             <div class="d-flex justify-content-between align-items-end mt-2 pt-2 border-top">
               <div class="small text-muted">
-                <i class="bi bi-person-walking"></i> 送件: ${item.sender}<br>
-                <i class="bi bi-capsule"></i> 藥師: <span class="${item.pharmaName === '等待中' ? 'text-danger' : 'text-primary'}">${item.pharmaName}</span>
+                <i class="bi bi-person-walking"></i> 送件: ${item.sender || item.SenderName || ''}<br>
+                <i class="bi bi-capsule"></i> 藥師: <span class="${item.pharmaName === '等待中' ? 'text-danger' : 'text-primary'}">${item.pharmaName || item.PharmaName || '等待中'}</span>
               </div>
               <div>
-                ${(item.status === '掛牌待傳送領回' || item.status === '退件') ? `<button class="btn btn-sm btn-success fw-bold" onclick="acknowledgeReturn('${item.signId}')">確認領回</button>` : ''}
+                ${(item.status === '掛牌待傳送領回' || item.status === '退件') ? `<button class="btn btn-sm btn-success fw-bold" onclick="acknowledgeReturn('${item.signId || item.SignId}')">確認領回</button>` : ''}
                 ${item.status === '待藥師收單' ? `<button class="btn btn-sm btn-outline-primary fw-bold" onclick="editSenderDoc(${args})"><i class="bi bi-pencil-square me-1"></i>修改資料</button>` : ''}
               </div>
             </div>
