@@ -72,8 +72,7 @@ function renderPharmaDocs() {
   const dispFilter = document.getElementById('filterPharmaDisp') ? document.getElementById('filterPharmaDisp').value.trim().toLowerCase() : '';
 
   // ★ 新增時間過濾：定義「兩日內 (昨天與今天)」的時間界線
-  const now = new Date();
-  const limitDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1); // 昨天的凌晨 00:00:00
+  const limitTimestamp = new Date().getTime() - (48 * 60 * 60 * 1000);
 
   // 2. 先對全域資料進行初步過濾 (加上兩日內的條件)
   const filteredData = allPharmaData.filter(item => {
@@ -84,8 +83,8 @@ function renderPharmaDocs() {
     const matchDisp = rawSearchText.includes(dispFilter);
     
     // ★ 檢查送件時間是否在兩日內
-    const itemTime = new Date(item.SendTime || 0);
-    const matchTime = itemTime >= limitDate;
+    const itemTime = new Date(item.SendTime || 0).getTime();
+    const matchTime = itemTime >= limitTimestamp;
 
     // 將 matchTime 加入最終判斷
     return matchType && matchChart && matchWard && matchDisp && matchTime;
@@ -255,7 +254,10 @@ async function receiveDoc(signId) {
     const res = await callGAS('receiveDocTransfer', payload);
     if (res.success) {
       Toast.fire({ icon: 'success', title: '收單成功' });
-      refreshPharmaDocs();
+      // 延遲 1.5 秒再向伺服器要資料，確保狀態已更新
+      setTimeout(() => {
+        refreshPharmaDocs();
+      }, 1500);
     } else {
       Swal.fire('失敗', res.message, 'error');
     }
