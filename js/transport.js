@@ -426,10 +426,12 @@ async function loadTodayDocs() {
     unresolvedData.sort(sortDesc);
     resolvedData.sort(sortDesc);
 
-// 卡片渲染函數
+    // 卡片渲染函數
     const renderCards = (dataArray, emptyMsg) => {
+      // 1. 若無資料，直接回傳字串 (String)
       if (dataArray.length === 0) return `<div class="text-muted text-center py-5 fs-5">${emptyMsg}</div>`;
       
+      // 2. 若有資料，用 map 產生陣列後，直接在裡面加上 .join('') 轉回字串 (String)
       return dataArray.map(item => {
         let details = [];
         const wardVal = item.ward || item.Ward;
@@ -473,10 +475,10 @@ async function loadTodayDocs() {
             </div>
           </div>
         </div>`;
-      }).join(''); // ★ 將 .join('') 移到 map 的結尾
+      }).join(''); 
     };
 
-    // 呼叫時直接賦值，不需要再加 .join('') 了
+    // ★ 呼叫時不再加上 .join('')
     unresolvedContainer.innerHTML = renderCards(unresolvedData, '近兩日無未結案紀錄');
     resolvedContainer.innerHTML = renderCards(resolvedData, '今日尚無已結案紀錄');
 
