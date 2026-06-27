@@ -42,24 +42,7 @@ function populatePharmaDocTypes() {
   if (uniqueTypes.includes(currentVal)) select.value = currentVal;
 }
 
-// === 藥師端：抓取資料 (改為只負責向伺服器要資料) ===
-async function refreshPharmaDocs() {
-  const pendingBox = document.getElementById('pendingContainer');
-  const completedBox = document.getElementById('completedContainer');
-
-  if(pendingBox) pendingBox.innerHTML = '<div class="text-center py-3">載入中...</div>';
-  if(completedBox) completedBox.innerHTML = '<div class="text-center py-3">載入中...</div>';
-
-  const result = await callGAS('getPharmaDocRecords');
-  if (!result.success) return;
-
-  allPharmaData = result.data; // ★ 將資料存入全域變數
-  populatePharmaDocTypes();    // 更新下拉選單
-  renderPharmaDocs();          // 進行過濾與畫面渲染
-}
-
-// === 藥師端：升級版清單渲染 (負責過濾與畫卡片) ===
-// ★ 加入：切換子頁籤時自動重整資料 (寫在檔案最外層)
+// ★ 加入：切換子頁籤時自動重整資料 (寫在檔案外層)
 document.addEventListener('DOMContentLoaded', () => {
   const pharmaTabs = document.querySelectorAll('button[data-bs-toggle="tab"], button[data-bs-toggle="pill"]');
   pharmaTabs.forEach(tab => {
@@ -71,10 +54,10 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 
-// 在原本的 refreshPharmaDocs 中，更新容器 ID
+// === 藥師端：抓取資料 ===
 async function refreshPharmaDocs() {
-  const pendingBox = document.getElementById('pharmaUnresolved'); // ★ 更新 ID
-  const completedBox = document.getElementById('pharmaResolved'); // ★ 更新 ID
+  const pendingBox = document.getElementById('pharmaUnresolved'); // 更新為新頁籤的 ID
+  const completedBox = document.getElementById('pharmaResolved'); // 更新為新頁籤的 ID
 
   if(pendingBox) pendingBox.innerHTML = '<div class="text-center py-3">載入中...</div>';
   if(completedBox) completedBox.innerHTML = '<div class="text-center py-3">載入中...</div>';
@@ -87,20 +70,102 @@ async function refreshPharmaDocs() {
   renderPharmaDocs();          
 }
 
-// 在原本的 renderPharmaDocs 中，更新容器 ID
+// === 藥師端：升級版清單渲染 (負責過濾與畫卡片) ===
 function renderPharmaDocs() {
-  const pendingBox = document.getElementById('pharmaUnresolved'); // ★ 更新 ID
-  const completedBox = document.getElementById('pharmaResolved'); // ★ 更新 ID
+  const pendingBox = document.getElementById('pharmaUnresolved');
+  const completedBox = document.getElementById('pharmaResolved');
   const countBadge = document.getElementById('pendingDocCount');
   if (!pendingBox || !completedBox) return;
 
-  // ... (保留您原本的過濾邏輯 filteredData、pendingData、completedData 不變) ...
+  // 1. 取得篩選條件
+  const typeFilter = document.getElementById('filterPharmaDocType') ? document.getElementById('filterPharmaDocType').value : '';
+  const chartFilter = document.getElementById('filterPharmaChart') ? document.getElementById('filterPharmaChart').value.trim().toLowerCase() : '';
+  const wardFilter = document.getElementById('filterPharmaWard') ? document.getElementById('filterPharmaWard').value.trim().toLowerCase() : '';
+  const dispFilter = document.getElementById('filterPharmaDisp') ? document.getElementById('filterPharmaDisp').value.trim().toLowerCase() : '';
+
+  // ★ 改用 Timestamp (毫秒) 進行精準比較，嚴格抓取前 48 小時內的單據
+  const limitTimestamp = new Date().getTime() - (48 * 60 * 60 * 1000); 
+
+  // 2. 先對全域資料進行初步過濾
+  const filteredData = allPharmaData.filter(item => {
+    const rawSearchText = `${item.SendNote || ''} ${item.ReceiveNote || ''} ${item.Quantity || ''} ${item.PickupNo || ''} ${item.SenderName || ''}`.toLowerCase();
+    const matchType = typeFilter === "" ? true : item.DocType === typeFilter;
+    const matchChart = (item.ChartNo || '').toLowerCase().includes(chartFilter);
+    const matchWard = (item.Ward || '').toLowerCase().includes(wardFilter);
+    const matchDisp = rawSearchText.includes(dispFilter);
+    
+    // ★ 檢查送件時間是否在 48 小時內 (轉為 Timestamp)
+    const itemTime = new Date(item.SendTime || 0).getTime();
+    const matchTime = itemTime >= limitTimestamp;
+
+    return matchType && matchChart && matchWard && matchDisp && matchTime;
+  });
+
+  // 3. 取得今天的 年、月、日
+  const today = new Date();
+  const todayYear = today.getFullYear();
+  const todayMonth = today.getMonth();
+  const todayDate = today.getDate();
+
+  // ★ 4. 這裡就是遺失的 pendingData：分流「待處理」
+  const pendingData = filteredData
+    .filter(item => !item.IsReceived && !item.IsClosed)
+    .sort((a, b) => new Date(b.SendTime) - new Date(a.SendTime));
+
+  // ★ 5. 這裡就是遺失的 completedData：分流「今日已處理」
+  const completedData = filteredData
+    .filter(item => {
+      if (!item.IsReceived || !item.ReceiveTime) return false;
+      const rxDate = new Date(item.ReceiveTime);
+      return rxDate.getFullYear() === todayYear &&
+             rxDate.getMonth() === todayMonth &&
+             rxDate.getDate() === todayDate;
+    })
+    .sort((a, b) => new Date(b.ReceiveTime) - new Date(a.ReceiveTime));
 
   if(countBadge) countBadge.textContent = pendingData.length;
 
-  // ... (保留您原本的 renderCard 函數不變) ...
+  // 核心渲染邏輯：統一處理卡片外觀
+  const renderCard = (item, isPending) => {
+    let detailsArr = [];
+    if (item.Ward) detailsArr.push(`病房: <span class="fw-bold text-dark">${item.Ward}</span>`);
+    if (item.ChartNo) detailsArr.push(`病歷: <span class="fw-bold text-dark">${item.ChartNo}</span>`);
+    if (item.Quantity) detailsArr.push(`數量: <span class="text-danger fw-bold">${item.Quantity}</span>`);
+    if (item.PickupNo) detailsArr.push(`領藥號: <span class="text-success fw-bold">${item.PickupNo}</span>`);
 
-  pendingBox.innerHTML = pendingData.length ? pendingData.map(item => renderCard(item, true)).join('') : '<div class="text-muted text-center py-4">無待處理的單據</div>';
+    let detailsHtml = detailsArr.join(' | ');
+    let sendTimeStr = item.SendTime ? new Date(item.SendTime).toLocaleTimeString('zh-TW', {hour: '2-digit', minute:'2-digit'}) : '';
+    let receiveTimeStr = item.ReceiveTime ? new Date(item.ReceiveTime).toLocaleTimeString('zh-TW', {hour: '2-digit', minute:'2-digit'}) : '';
+
+    const editArgs = `'${item.Title}', '${item.ReplyOption || ''}', '${item.ReceiveNote || ''}', '${item.DocType}', '${item.Ward || ''}', '${item.ChartNo || ''}', '${item.Quantity || ''}', '${item.PickupNo || ''}', '${item.SenderName}', '${item.SendNote || ''}'`;
+
+    return `
+    <div class="card mb-2 shadow-sm border-start border-4 ${isPending ? 'border-warning' : 'border-primary'}">
+      <div class="card-body p-2">
+        <div class="d-flex justify-content-between align-items-start">
+          <strong class="fs-5 ${isPending ? 'text-dark' : 'text-primary'}">${item.DocType}</strong>
+          ${!isPending ? `<span class="badge ${item.ReplyOption === '收下不歸還' ? 'bg-success' : 'bg-primary'}">${item.ReplyOption}</span>` : ''}
+        </div>
+        <div class="small mb-1 text-secondary">${detailsHtml}</div>
+
+        ${item.SendNote ? `<div class="bg-light p-1 rounded small text-danger border mb-1"><i class="bi bi-person-walking me-1"></i>傳送備註: ${item.SendNote}</div>` : ''}
+        ${item.ReceiveNote ? `<div class="bg-blue-light p-1 rounded small text-primary border mb-1" style="background-color: #e7f1ff;"><i class="bi bi-capsule me-1"></i>藥師回覆: ${item.ReceiveNote}</div>` : ''}
+
+        <div class="d-flex justify-content-between align-items-center mt-2 border-top pt-2">
+          <div class="small text-muted">
+            <i class="bi bi-person-walking"></i> ${item.SenderName} (${sendTimeStr})
+            ${!isPending ? `<br><i class="bi bi-capsule"></i> ${item.PharmaName} (${receiveTimeStr})` : ''}
+          </div>
+          ${isPending ?
+            `<button class="btn btn-warning btn-sm fw-bold" onclick="receiveDoc('${item.Title}')">收單</button>` :
+            `<button class="btn btn-outline-primary btn-sm py-0" onclick="editDocInfo(${editArgs})">修改</button>`
+          }
+        </div>
+      </div>
+    </div>`;
+  };
+
+  pendingBox.innerHTML = pendingData.length ? pendingData.map(item => renderCard(item, true)).join('') : '<div class="text-muted text-center py-4">無待處理或符合條件的單據</div>';
   completedBox.innerHTML = completedData.length ? completedData.map(item => renderCard(item, false)).join('') : '<div class="text-muted text-center py-4">今日無已處理的紀錄</div>';
 }
 
