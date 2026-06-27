@@ -426,7 +426,7 @@ async function loadTodayDocs() {
     unresolvedData.sort(sortDesc);
     resolvedData.sort(sortDesc);
 
-    // 卡片渲染函數 (保留所有您原本的功能與大小寫相容)
+// 卡片渲染函數
     const renderCards = (dataArray, emptyMsg) => {
       if (dataArray.length === 0) return `<div class="text-muted text-center py-5 fs-5">${emptyMsg}</div>`;
       
@@ -473,11 +473,12 @@ async function loadTodayDocs() {
             </div>
           </div>
         </div>`;
-      });
+      }).join(''); // ★ 將 .join('') 移到 map 的結尾
     };
 
-    unresolvedContainer.innerHTML = renderCards(unresolvedData, '近兩日無未結案紀錄').join('');
-    resolvedContainer.innerHTML = renderCards(resolvedData, '今日尚無已結案紀錄').join('');
+    // 呼叫時直接賦值，不需要再加 .join('') 了
+    unresolvedContainer.innerHTML = renderCards(unresolvedData, '近兩日無未結案紀錄');
+    resolvedContainer.innerHTML = renderCards(resolvedData, '今日尚無已結案紀錄');
 
   } else {
     unresolvedContainer.innerHTML = '<div class="text-danger text-center py-5 fs-5">連線失敗</div>';
