@@ -88,25 +88,28 @@
           </div>
         </div>
 
-        <div class="row">
-          <div class="col-lg-6 mb-4">
-            <div class="card shadow border-warning h-100">
-              <div class="card-header bg-warning text-dark d-flex justify-content-between align-items-center py-3">
-                <h4 class="m-0 fw-bold"><i class="bi bi-inbox me-2"></i>待收單列表</h4>
-                <button class="btn btn-light btn-sm fw-bold" id="btnRefreshPending"><i class="bi bi-arrow-clockwise me-1"></i>重整資料</button>
-              </div>
-              <div class="card-body bg-light" id="pendingContainer" style="height: 600px; overflow-y: auto;">
+        <div class="card shadow border-primary h-100">
+          <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center py-2">
+            <h5 class="m-0 fw-bold">單據處理區</h5>
+            <button class="btn btn-light btn-sm fw-bold" id="btnRefreshPending"><i class="bi bi-arrow-clockwise me-1"></i>重整資料</button>
+          </div>
+          <div class="card-body bg-light p-3">
+            <ul class="nav nav-pills nav-fill mb-3 fw-bold" id="pharmaDocSubTab" role="tablist">
+              <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="pharma-unresolved-tab" data-bs-toggle="pill" data-bs-target="#pharmaUnresolved" type="button" role="tab">
+                  ⏳ 待處理 / 未結案 <span class="badge bg-danger rounded-pill ms-2" id="pendingDocCount">0</span>
+                </button>
+              </li>
+              <li class="nav-item" role="presentation">
+                <button class="nav-link" id="pharma-resolved-tab" data-bs-toggle="pill" data-bs-target="#pharmaResolved" type="button" role="tab">✅ 今日已處理</button>
+              </li>
+            </ul>
+
+            <div class="tab-content" id="pharmaDocSubTabContent">
+              <div class="tab-pane fade show active" id="pharmaUnresolved" role="tabpanel" style="height: 600px; overflow-y: auto;">
                 <div class="text-muted text-center py-5 fs-4">資料讀取中...</div>
               </div>
-            </div>
-          </div>
-
-          <div class="col-lg-6">
-            <div class="card shadow border-primary h-100">
-              <div class="card-header bg-primary text-white py-3">
-                <h4 class="m-0 fw-bold"><i class="bi bi-check2-circle me-2"></i>今日已收單紀錄</h4>
-              </div>
-              <div class="card-body" id="completedContainer" style="height: 600px; overflow-y: auto;">
+              <div class="tab-pane fade" id="pharmaResolved" role="tabpanel" style="height: 600px; overflow-y: auto;">
                 <div class="text-muted text-center py-5 fs-4">資料讀取中...</div>
               </div>
             </div>
