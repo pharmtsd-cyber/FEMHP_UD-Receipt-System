@@ -370,62 +370,86 @@ async function loadDocConfig() {
   }
 }
 
+// ★ 加入：當任何頁籤 (包含主頁籤與子頁籤) 被點擊顯示時，自動重整資料
+document.addEventListener('DOMContentLoaded', () => {
+  const allTabs = document.querySelectorAll('button[data-bs-toggle="tab"], button[data-bs-toggle="pill"]');
+  allTabs.forEach(tab => {
+    tab.addEventListener('shown.bs.tab', (e) => {
+      // 只要切換到文件相關的頁籤，就觸發重整
+      if (['doc-tab', 'doc-unresolved-tab', 'doc-resolved-tab'].includes(e.target.id)) {
+        loadTodayDocs();
+      }
+    });
+  });
+});
+
+// ★ 替換原本的 loadTodayDocs 函數
 async function loadTodayDocs() {
-  const container = document.getElementById('docRecordContainer');
+  const unresolvedContainer = document.getElementById('docUnresolved');
+  const resolvedContainer = document.getElementById('docResolved');
   const btn = document.getElementById('btnRefreshDoc');
-  if (!container) return;
+  if (!unresolvedContainer || !resolvedContainer) return;
 
   if (btn) {
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>讀取中';
   }
-  container.innerHTML = '<div class="text-muted text-center py-5 fs-5">資料讀取中...</div>';
+  
+  const loadingHtml = '<div class="text-muted text-center py-5 fs-5">資料讀取中...</div>';
+  unresolvedContainer.innerHTML = loadingHtml;
+  resolvedContainer.innerHTML = loadingHtml;
 
   const res = await callGAS('getTodayDocRecords');
 
   if (res.success) {
-    // 定義「兩日內 (昨天與今天)」的時間界線
-    const now = new Date();
-    const limitDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1); 
+    // 嚴格抓取近 48 小時的時間戳記
+    const limitTimestamp = new Date().getTime() - (48 * 60 * 60 * 1000);
+    const todayStr = new Date().toLocaleDateString('zh-TW'); // 用於比對今日已結案
 
-    const filteredTwoDaysData = res.data.filter(item => {
+    let unresolvedData = [];
+    let resolvedData = [];
+
+    // 資料分流邏輯
+    res.data.forEach(item => {
       const itemTime = new Date(item.sendTime || item.SendTime || 0);
-      return itemTime >= limitDate;
+      const isClosed = item.isClosed || item.IsClosed || (item.status && (item.status.includes('已結案') || item.status.includes('已領回')));
+      
+      if (!isClosed && itemTime.getTime() >= limitTimestamp) {
+        unresolvedData.push(item);
+      } else if (isClosed && itemTime.toLocaleDateString('zh-TW') === todayStr) {
+        resolvedData.push(item);
+      }
     });
 
-    if (filteredTwoDaysData.length === 0) {
-      container.innerHTML = '<div class="text-muted text-center py-5 fs-5">近兩日尚無未結案的紀錄</div>';
-    } else {
-      const sortedData = filteredTwoDaysData.sort((a, b) => {
-        const timeA = new Date(a.sendTime || a.SendTime || 0);
-        const timeB = new Date(b.sendTime || b.SendTime || 0);
-        return timeB - timeA;
-      });
+    // 依時間新到舊排序
+    const sortDesc = (a, b) => new Date(b.sendTime || b.SendTime || 0) - new Date(a.sendTime || a.SendTime || 0);
+    unresolvedData.sort(sortDesc);
+    resolvedData.sort(sortDesc);
 
-      container.innerHTML = sortedData.map(item => {
+    // 卡片渲染函數 (保留所有您原本的功能與大小寫相容)
+    const renderCards = (dataArray, emptyMsg) => {
+      if (dataArray.length === 0) return `<div class="text-muted text-center py-5 fs-5">${emptyMsg}</div>`;
+      
+      return dataArray.map(item => {
         let details = [];
-        
-        // ★ 核心修正：同時相容小寫與大寫屬性名稱，確保資料一定抓得到
         const wardVal = item.ward || item.Ward;
         const chartVal = item.chartNo || item.ChartNo;
         const qtyVal = item.quantity || item.Quantity;
         const pickupVal = item.pickupNo || item.PickupNo;
+        const status = item.status || item.Status;
 
         if (wardVal) details.push(`病房: <span class="fw-bold text-primary fs-5 align-middle">${wardVal}</span>`);
         if (chartVal) details.push(`病歷: <span class="fw-bold text-dark fs-5 align-middle">${chartVal}</span>`);
-        
-        // 加上數量與領藥號，統一設定為 fs-5 搭配整體比例
         if (qtyVal) details.push(`數量: <span class="text-danger fw-bold fs-5 align-middle">${qtyVal}</span>`);
         if (pickupVal) details.push(`領藥號: <span class="text-success fw-bold fs-5 align-middle">${pickupVal}</span>`);
 
-        // 確保按鈕綁定的屬性也是有值的 (相容大小寫)
         const args = `'${item.signId || item.SignId}', '${item.type || item.Type}', '${wardVal || ''}', '${chartVal || ''}', '${qtyVal || ''}', '${pickupVal || ''}', '${item.sendNote || item.SendNote || ''}'`;
 
         return `
-        <div class="card mb-3 shadow-sm border-start border-4 ${item.status === '待藥師收單' ? 'border-warning' : (item.status === '退件' ? 'border-danger' : 'border-primary')}">
+        <div class="card mb-3 shadow-sm border-start border-4 ${status === '待藥師收單' ? 'border-warning' : (status === '退件' ? 'border-danger' : (status.includes('已結案') || status.includes('已領回') ? 'border-secondary' : 'border-primary'))}">
           <div class="card-body p-3">
             <div class="d-flex justify-content-between align-items-center mb-2">
-              <span class="badge ${item.status === '待藥師收單' ? 'bg-warning text-dark' : (item.status === '退件' ? 'bg-danger' : 'bg-primary')} fs-6">${item.status}</span>
+              <span class="badge ${status === '待藥師收單' ? 'bg-warning text-dark' : (status === '退件' ? 'bg-danger' : (status.includes('已結案') || status.includes('已領回') ? 'bg-secondary' : 'bg-primary'))} fs-6">${status}</span>
               <span class="text-muted small">${item.sendTime || item.SendTime}</span>
             </div>
             <h5 class="fw-bold text-dark mb-1">${item.type || item.Type}</h5>
@@ -435,25 +459,29 @@ async function loadTodayDocs() {
             </div>
             
             ${(item.sendNote || item.SendNote) ? `<div class="text-danger small mb-2 bg-light p-1 rounded border"><i class="bi bi-chat-left-text me-1"></i>送件備註: ${item.sendNote || item.SendNote}</div>` : ''}
-            
             ${(item.receiveNote || item.ReceiveNote) ? `<div class="text-primary small mb-2 bg-blue-light p-1 rounded border" style="background-color: #e7f1ff;"><i class="bi bi-capsule me-1"></i>藥師回覆: ${item.receiveNote || item.ReceiveNote}</div>` : ''}
             
             <div class="d-flex justify-content-between align-items-end mt-2 pt-2 border-top">
               <div class="small text-muted">
                 <i class="bi bi-person-walking"></i> 送件: ${item.sender || item.SenderName || ''}<br>
-                <i class="bi bi-capsule"></i> 藥師: <span class="${item.pharmaName === '等待中' ? 'text-danger' : 'text-primary'}">${item.pharmaName || item.PharmaName || '等待中'}</span>
+                <i class="bi bi-capsule"></i> 藥師: <span class="${item.pharmaName === '等待中' || !item.pharmaName ? 'text-danger' : 'text-primary'}">${item.pharmaName || item.PharmaName || '等待中'}</span>
               </div>
               <div>
-                ${(item.status === '掛牌待傳送領回' || item.status === '退件') ? `<button class="btn btn-sm btn-success fw-bold" onclick="acknowledgeReturn('${item.signId || item.SignId}')">確認領回</button>` : ''}
-                ${item.status === '待藥師收單' ? `<button class="btn btn-sm btn-outline-primary fw-bold" onclick="editSenderDoc(${args})"><i class="bi bi-pencil-square me-1"></i>修改資料</button>` : ''}
+                ${(status === '掛牌待傳送領回' || status === '退件') ? `<button class="btn btn-sm btn-success fw-bold" onclick="acknowledgeReturn('${item.signId || item.SignId}')">確認領回</button>` : ''}
+                ${status === '待藥師收單' ? `<button class="btn btn-sm btn-outline-primary fw-bold" onclick="editSenderDoc(${args})"><i class="bi bi-pencil-square me-1"></i>修改資料</button>` : ''}
               </div>
             </div>
           </div>
         </div>`;
-      }).join('');
-    }
+      });
+    };
+
+    unresolvedContainer.innerHTML = renderCards(unresolvedData, '近兩日無未結案紀錄').join('');
+    resolvedContainer.innerHTML = renderCards(resolvedData, '今日尚無已結案紀錄').join('');
+
   } else {
-    container.innerHTML = '<div class="text-danger text-center py-5 fs-5">連線失敗</div>';
+    unresolvedContainer.innerHTML = '<div class="text-danger text-center py-5 fs-5">連線失敗</div>';
+    resolvedContainer.innerHTML = '<div class="text-danger text-center py-5 fs-5">連線失敗</div>';
   }
 
   if (btn) {
