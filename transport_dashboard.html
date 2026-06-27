@@ -107,20 +107,32 @@
 
     <!-- 右側：今日送件進度紀錄 -->
     <div class="col-lg-7">
-      <div class="card shadow h-100">
+      <div class="card shadow h-100 border-primary">
         <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center py-3">
-          <h4 class="m-0 fw-bold"><i class="bi bi-clock-history me-2"></i>今日送件進度追蹤</h4>
+          <h4 class="m-0 fw-bold"><i class="bi bi-clock-history me-2"></i>送件進度追蹤</h4>
           <button class="btn btn-light btn-sm fw-bold" id="btnRefreshDoc">
             <i class="bi bi-arrow-clockwise me-1"></i>重整
           </button>
         </div>
-        <div class="card-body bg-light" id="docRecordContainer" style="height: 700px; overflow-y: auto;">
-          <!-- 紀錄卡片會出現在這 -->
+        <div class="card-body bg-light">
+          <ul class="nav nav-pills nav-fill mb-3 fw-bold" id="docSubTab" role="tablist">
+            <li class="nav-item" role="presentation">
+              <button class="nav-link active" id="doc-unresolved-tab" data-bs-toggle="pill" data-bs-target="#docUnresolved" type="button" role="tab">⏳ 近兩日未結案</button>
+            </li>
+            <li class="nav-item" role="presentation">
+              <button class="nav-link" id="doc-resolved-tab" data-bs-toggle="pill" data-bs-target="#docResolved" type="button" role="tab">✅ 今日已結案</button>
+            </li>
+          </ul>
+
+          <div class="tab-content" id="docSubTabContent">
+            <div class="tab-pane fade show active" id="docUnresolved" role="tabpanel" style="height: 600px; overflow-y: auto;">
+              </div>
+            <div class="tab-pane fade" id="docResolved" role="tabpanel" style="height: 600px; overflow-y: auto;">
+              </div>
+          </div>
         </div>
       </div>
     </div>
-  </div>
-</div>
 
     </div>
   </div>
